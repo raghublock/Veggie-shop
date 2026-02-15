@@ -109,3 +109,22 @@ app.post('/api/advance-booking', async (req, res) => {
     });
 });
 
+// Product Model
+const Product = mongoose.model('Product', new mongoose.Schema({
+    name: String,
+    price: Number,
+    stock: Number,
+    unit: String,
+    image: String
+}));
+
+// Yeh route database se sabziyan laakar screen par dikhayega
+app.get('/api/products', async (req, res) => {
+    try {
+        const products = await Product.find({});
+        res.json(products);
+    } catch (err) {
+        res.status(500).json({ error: "Data nahi mil raha" });
+    }
+});
+
