@@ -77,3 +77,22 @@ app.post('/api/user/check-radius', (req, res) => {
     }
 });
 
+// Product Schema (Database mein sabziyan save karne ke liye)
+const productSchema = new mongoose.Schema({
+    name: String,
+    price: Number,
+    image: String,
+    stock: Number
+});
+const Product = mongoose.model('Product', productSchema);
+
+// API to get all products
+app.get('/api/products', async (req, res) => {
+    try {
+        const products = await Product.find();
+        res.json(products);
+    } catch (err) {
+        res.status(500).json({ error: "Products nahi mil rahe" });
+    }
+});
+
