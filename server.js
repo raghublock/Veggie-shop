@@ -53,3 +53,27 @@ app.get('/', (req, res) => {
     res.render('index'); // Yeh 'views/index.ejs' ko load karega
 });
 
+// Distance Check API
+app.post('/api/user/check-radius', (req, res) => {
+    const { lat, lng } = req.body;
+    
+    // Bikaner Shop Location
+    const shopLat = 28.0229; 
+    const shopLng = 73.3119;
+
+    // Haversine Formula logic
+    const R = 6371; // Earth radius in km
+    const dLat = (shopLat - lat) * Math.PI / 180;
+    const dLon = (shopLng - lng) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat * Math.PI / 180) * Math.cos(shopLat * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distance = R * c;
+
+    if (distance <= 5) {
+        res.json({ inRadius: true });
+    } else {
+        res.json({ inRadius: false, error: "Maafi, hum sirf 5km tak hi delivery karte hain." });
+    }
+});
+
