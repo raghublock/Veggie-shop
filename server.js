@@ -46,3 +46,10 @@ app.post('/api/order', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server chalu hai port ${PORT} par`));
+
+app.set('view engine', 'ejs'); // EJS engine set karne ke liye
+
+app.get('/', (req, res) => {
+    res.render('index'); // Yeh 'views/index.ejs' ko load karega
+});
+
