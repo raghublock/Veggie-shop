@@ -52,6 +52,24 @@
                     msg.className = "text-danger mt-3 text-center fw-bold";
                     msg.innerText = "Maafi chahte hain, hum sirf 5km ke area mein delivery karte hain.";
                 }
+                if(data.inRadius) {
+    // Products fetch karne ka logic
+    const prodRes = await fetch('/api/products');
+    const products = await prodRes.json();
+    let html = '<div class="row mt-4">';
+    products.forEach(p => {
+        html += `
+            <div class="col-6 mb-3">
+                <div class="card p-2">
+                    <h6>${p.name}</h6>
+                    <p>Price: ₹${p.price}/kg</p>
+                    <button class="btn btn-sm btn-success" onclick="addToCart('${p._id}')">Add +</button>
+                </div>
+            </div>`;
+    });
+    html += '</div><button class="btn btn-warning w-100 mt-3">Go to Checkout</button>';
+    document.getElementById('product-list').innerHTML = html;
+}
             }, () => {
                 msg.innerText = "Kripya GPS location allow karein.";
             });
