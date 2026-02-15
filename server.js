@@ -96,3 +96,16 @@ app.get('/api/products', async (req, res) => {
     }
 });
 
+app.post('/api/advance-booking', async (req, res) => {
+    const { total, deliveryDate } = req.body;
+    const securityAmount = total * 0.60; // 60% Advance
+    const remainingAmount = total * 0.40; // 40% On Delivery
+    
+    res.json({
+        message: `Advance booking ke liye ₹${securityAmount} pay karein.`,
+        securityAmount,
+        remainingAmount,
+        cancellationFee: total * 0.20 // 20% Penalty
+    });
+});
+
