@@ -5,19 +5,21 @@ require('dotenv').config();
 
 const app = express();
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // Form data handle karne ke liye
 
 // EJS Setup
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// 1. Database Connection (Sabse Zaroori)
+// 1. Database Connection
 mongoose.connect(process.env.MONGODB_URI)
     .then(() => console.log("Bikaner DB Connected"))
     .catch(err => console.error("DB Connection Fail:", err));
 
-// 2. Product Model (Sirf ek baar banayein)
+// 2. Product Model (Hindi Name support ke saath)
 const productSchema = new mongoose.Schema({
     name: String,
+    hindiName: String, // Naya field Hindi ke liye
     price: Number,
     stock: Number,
     unit: String,
@@ -29,12 +31,27 @@ const Product = mongoose.model('Product', productSchema);
 const SHOP_LAT = 28.0229; 
 const SHOP_LNG = 73.3119;
 
+// --- ROUTES ---
+
 // 4. Home Page Route
 app.get('/', (req, res) => {
     res.render('index'); 
 });
 
-// 5. Radius Check API
+// 5. Admin Page Route (Password Protected)
+app.get('/admin', (req, res) => {
+    const { pass } = req.query;
+    // Password 'bhati@123' rakha hai, aap badal sakte hain
+    if (pass === 'bhati@123') {
+        res.render('admin');
+    } else {
+        res.send("<h1>Unauthorized! Sahi password ke saath URL kholiye.</h1><p>Example: /admin?pass=aapka_password</p>");
+    }
+});
+
+// --- API SECTION ---
+
+// 6. Radius Check API
 app.post('/api/user/check-radius', (req, res) => {
     const { lat, lng } = req.body;
     const R = 6371; // km
@@ -52,7 +69,7 @@ app.post('/api/user/check-radius', (req, res) => {
     }
 });
 
-// 6. Get All Products API
+// 7. Get All Products API
 app.get('/api/products', async (req, res) => {
     try {
         const products = await Product.find({});
@@ -62,7 +79,23 @@ app.get('/api/products', async (req, res) => {
     }
 });
 
-// 7. Advance Booking Logic (60% Advance & 20% Penalty)
+// 8. Admin Update API (Price aur Stock badalne ke liye)
+app.post('/api/products/update/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { price, stock } = req.body;
+        // Database mein naya rate update karein
+        await Product.findByIdAndUpdate(id, { 
+            price: Number(price),
+            stock: Number(stock) 
+        });
+        res.json({ message: "Rate successfully update ho gaya!" });
+    } catch (err) {
+        res.status(500).json({ error: "Update fail ho gaya" });
+    }
+});
+
+// 9. Advance Booking Logic
 app.post('/api/advance-booking', async (req, res) => {
     const { total } = req.body;
     const securityAmount = total * 0.60;
@@ -74,3 +107,4 @@ app.post('/api/advance-booking', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server live on port ${PORT}`));
+
