@@ -14,6 +14,7 @@
         .qr-box { border: 2px dashed #198754; padding: 15px; border-radius: 15px; background: #fff; display: none; margin-top: 15px; }
         #suggestion-box { position: absolute; width: 100%; background: white; border-radius: 8px; z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none; }
         .suggestion-item { padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 0.85rem; }
+        .rate-warning { font-size: 0.75rem; background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; border-left: 4px solid #ffeeba; }
     </style>
 </head>
 <body>
@@ -26,7 +27,7 @@
             <div id="login-section">
                 <div class="mb-2">
                     <label class="small fw-bold">Mobile Number (मोबाइल)</label>
-                    <input type="number" id="mobile" placeholder="Apna Number Likhein" class="form-control py-2">
+                    <input type="number" id="mobile" placeholder="अपना नंबर लिखें" class="form-control py-2">
                 </div>
                 
                 <div class="mb-2 position-relative">
@@ -50,6 +51,9 @@
                 <div id="date-section" class="mb-3" style="display:none;">
                     <label class="small fw-bold text-danger">Delivery Date (तारीख)</label>
                     <input type="date" id="delivery-date" class="form-control border-danger">
+                    <div class="rate-warning mt-2">
+                        <b>⚠️ नोट:</b> बाकी 40% पेमेंट डिलीवरी वाले दिन के मंडी भाव (Market Rate) के हिसाब से कम या ज्यादा हो सकती है।
+                    </div>
                 </div>
 
                 <button onclick="checkLocation()" class="btn btn-primary w-100 fw-bold py-2 shadow-sm">Confirm & Shop Now</button>
@@ -219,9 +223,9 @@
                        `📅 *Type:* ${type === 'future' ? 'FUTURE BOOKING' : 'URGENT'}\n` +
                        (type === 'future' ? `📆 *Date:* ${date}\n` : '') +
                        `📍 *Address:* ${address}\n---------------------------\n${bill}\n---------------------------\n` +
-                       `💰 *Total:* ₹${total}\n` +
-                       (type === 'future' ? `💳 *Advance (60%):* ₹${(total*0.6).toFixed(2)}\n` : '') +
-                       `📞 *Contact:* ${mobile}`;
+                       `💰 *Total (Current Rate):* ₹${total}\n` +
+                       (type === 'future' ? `💳 *Advance (60%):* ₹${(total*0.6).toFixed(2)}\n\n⚠️ *Note:* Baaki payment delivery date ke rate ke hisab se lagegi.` : '') +
+                       `\n📞 *Contact:* ${mobile}`;
             
             window.open(`https://wa.me/918740871855?text=${encodeURIComponent(text)}`);
         }
