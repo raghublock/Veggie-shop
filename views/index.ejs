@@ -8,10 +8,13 @@
         body { background-color: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
         .order-card { max-width: 500px; margin: 20px auto; padding: 25px; border-radius: 20px; border: none; }
         .product-item { background: #ffffff; border-radius: 12px; padding: 12px; margin-bottom: 10px; border-left: 5px solid #198754; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .hindi-text { color: #198754; font-size: 0.85rem; font-weight: 500; }
         .btn-add { background-color: #198754; color: white; border: none; padding: 5px 15px; border-radius: 8px; font-weight: bold; }
         .qty-btn { width: 30px; height: 30px; border-radius: 50%; border: 1px solid #ddd; background: white; font-weight: bold; cursor: pointer; }
         .qr-box { border: 2px dashed #198754; padding: 15px; border-radius: 15px; background: #fff; display: none; margin-top: 15px; }
+        /* Search Suggestion Styling */
+        #suggestion-box { position: absolute; width: 100%; background: white; border-radius: 8px; z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none; }
+        .suggestion-item { padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 0.85rem; }
+        .suggestion-item:hover { background: #f8f9fa; }
     </style>
 </head>
 <body>
@@ -23,29 +26,30 @@
             
             <div id="login-section">
                 <div class="mb-2">
-                    <label class="small fw-bold">Mobile Number (मोबाइल नंबर)</label>
-                    <input type="number" id="mobile" placeholder="98290XXXXX" class="form-control py-2">
+                    <label class="small fw-bold">Mobile Number (मोबाइल)</label>
+                    <input type="number" id="mobile" value="7023629398" class="form-control py-2">
                 </div>
                 
-                <div class="mb-2">
+                <div class="mb-2 position-relative">
                     <div class="d-flex justify-content-between">
                         <label class="small fw-bold text-danger">Delivery Address (पता)</label>
-                        <button onclick="autoLocate()" class="btn btn-outline-primary btn-sm px-2 py-0">📍 Auto-Detect</button>
+                        <button onclick="autoLocate()" class="btn btn-outline-primary btn-sm px-2 py-0" style="font-size: 0.75rem;">📍 Auto-Detect</button>
                     </div>
-                    <textarea id="address" placeholder="Gali, Mohalla, Area..." class="form-control mt-1" rows="2"></textarea>
+                    <input type="text" id="address" placeholder="Mohalla ya Area likhein..." class="form-control mt-1" oninput="fetchSuggestions(this.value)">
+                    <div id="suggestion-box"></div>
                     <small id="addr-status" class="text-muted" style="font-size: 0.7rem;"></small>
                 </div>
 
                 <div class="mb-3">
                     <label class="small fw-bold text-primary">Delivery Kab Chahiye?</label>
                     <select id="delivery-type" class="form-select border-primary" onchange="toggleDateAndUI()">
-                        <option value="today">Aaj hi (Urgent - COD)</option>
+                        <option value="today">Aaj hi (Urgent Delivery)</option>
                         <option value="future">Future Booking (Advance Booking)</option>
                     </select>
                 </div>
 
                 <div id="date-section" class="mb-3" style="display:none;">
-                    <label class="small fw-bold text-danger">Delivery Date (डिलीवरी की तारीख)</label>
+                    <label class="small fw-bold text-danger">Delivery Date (डिलीवरी तारीख)</label>
                     <input type="date" id="delivery-date" class="form-control border-danger">
                 </div>
 
@@ -58,7 +62,6 @@
             <div id="checkout-section" style="display:none;" class="mt-4 border-top pt-3">
                 <h6 class="fw-bold mb-3">Aapka Cart (आपका कार्ट)</h6>
                 <div id="cart-details" class="mb-3"></div>
-                
                 <div class="d-flex justify-content-between align-items-center bg-light p-2 rounded mb-2 border">
                     <span class="fw-bold">Total Bill:</span>
                     <span class="fw-bold text-success fs-5">₹<span id="cart-total">0</span></span>
@@ -68,7 +71,6 @@
                     <h6 class="text-warning fw-bold">Advance Payment (60%): ₹<span id="advance-amt">0</span></h6>
                     <img id="qr-img" src="" alt="UPI QR Code" class="img-fluid mb-2 border p-2 bg-white" style="max-width: 200px;">
                     <p class="fw-bold small text-dark mb-1">UPI ID: 8740871855@ptsbi</p>
-                    <p class="text-danger small" style="font-size: 0.7rem;">Scan karke payment screenshot bhejein</p>
                 </div>
                 
                 <button onclick="sendOrder()" class="btn btn-warning w-100 fw-bold py-3 shadow mt-3">Confirm Order on WhatsApp</button>
@@ -80,37 +82,52 @@
         let cart = [];
         let productsData = [];
 
+        // Free Address Suggestions logic (Google API Key ki zaroorat nahi hai)
+        async function fetchSuggestions(query) {
+            const box = document.getElementById('suggestion-box');
+            if (query.length < 3) { box.style.display = 'none'; return; }
+
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}, Bikaner&limit=5`);
+                const data = await res.json();
+                if (data.length > 0) {
+                    box.innerHTML = data.map(item => `<div class="suggestion-item" onclick="selectAddr('${item.display_name}')">${item.display_name}</div>`).join('');
+                    box.style.display = 'block';
+                }
+            } catch (e) { console.log("Suggestion error"); }
+        }
+
+        function selectAddr(addr) {
+            document.getElementById('address').value = addr;
+            document.getElementById('suggestion-box').style.display = 'none';
+        }
+
         function toggleDateAndUI() {
             const type = document.getElementById('delivery-type').value;
             const dateSection = document.getElementById('date-section');
             if (type === 'future') {
                 dateSection.style.display = 'block';
-                let today = new Date().toISOString().split('T')[0];
-                document.getElementById('delivery-date').setAttribute('min', today);
-            } else {
-                dateSection.style.display = 'none';
-            }
+                document.getElementById('delivery-date').setAttribute('min', new Date().toISOString().split('T')[0]);
+            } else { dateSection.style.display = 'none'; }
             updateCartUI();
         }
 
         async function autoLocate() {
             const status = document.getElementById('addr-status');
             status.innerText = "Finding address...";
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(async (pos) => {
-                    try {
-                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&accept-language=hi`);
-                        const data = await res.json();
-                        document.getElementById('address').value = data.display_name;
-                        status.innerText = "✅ Address Detected!";
-                    } catch (e) { status.innerText = "Error! Manual type karein."; }
-                });
-            }
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                try {
+                    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&accept-language=hi`);
+                    const data = await res.json();
+                    document.getElementById('address').value = data.display_name;
+                    status.innerText = "✅ Detected!";
+                } catch (e) { status.innerText = "Error!"; }
+            });
         }
 
         async function checkLocation() {
             const addr = document.getElementById('address').value;
-            if(!addr) return alert("Kripya address bharein!");
+            if(!addr) return alert("Address bharein!");
             const msg = document.getElementById('status-msg');
             msg.innerText = "Verifying Area...";
             navigator.geolocation.getCurrentPosition(async (pos) => {
@@ -122,8 +139,8 @@
                 const data = await res.json();
                 if(data.inRadius) {
                     msg.className = "text-success mt-2 text-center";
-                    msg.innerText = "Verified! Loading Veggies...";
-                    await loadProducts();
+                    msg.innerText = "Verified! Start Shopping.";
+                    loadProducts();
                 } else {
                     msg.className = "text-danger mt-2 text-center";
                     msg.innerText = "Maafi, hum yahan delivery nahi karte.";
@@ -184,8 +201,8 @@
                 const advance = (total * 0.6).toFixed(2);
                 advBox.style.display = 'block';
                 document.getElementById('advance-amt').innerText = advance;
-                const upiLink = `upi://pay?pa=8740871855@ptsbi&pn=BikanerFreshVeggies&am=${advance}&cu=INR`;
-                document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=225x225&data=${encodeURIComponent(upiLink)}`;
+                const upiUrl = `upi://pay?pa=8740871855@ptsbi&pn=BikanerFreshVeggies&am=${advance}&cu=INR`;
+                document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=225x225&data=${encodeURIComponent(upiUrl)}`;
             } else { advBox.style.display = 'none'; }
         }
 
@@ -195,7 +212,6 @@
             const type = document.getElementById('delivery-type').value;
             const date = document.getElementById('delivery-date').value;
             if(!mobile || !address || cart.length === 0) return alert("Details missing!");
-            if(type === 'future' && !date) return alert("Delivery date chunein!");
 
             let bill = cart.map(i => `✅ ${i.name} (${i.quantity}${i.unit}) = ₹${i.price * i.quantity}`).join('\n');
             const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
