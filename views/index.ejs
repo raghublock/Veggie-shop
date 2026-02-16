@@ -11,6 +11,7 @@
         .btn-add { background-color: #198754; color: white; border: none; padding: 5px 15px; border-radius: 8px; font-weight: bold; }
         .cart-item { background: #fdfdfd; padding: 10px; border-bottom: 1px solid #eee; }
         .qty-btn { width: 30px; height: 30px; border-radius: 50%; border: 1px solid #ddd; background: white; font-weight: bold; }
+        .qr-box { border: 2px dashed #198754; padding: 15px; border-radius: 15px; background: #fff; display: none; }
     </style>
 </head>
 <body>
@@ -23,24 +24,27 @@
             <div id="login-section">
                 <div class="mb-2">
                     <label class="small fw-bold">Mobile Number</label>
-                    <input type="number" id="mobile" placeholder="Mobile Number" class="form-control py-2">
+                    <input type="number" id="mobile" placeholder="98290XXXXX" class="form-control py-2">
+                </div>
+                <div class="mb-2">
+                    <label class="small fw-bold text-danger">Delivery Full Address</label>
+                    <textarea id="address" placeholder="Gali No., Makan No., Landmark, Area..." class="form-control" rows="2"></textarea>
                 </div>
                 <div class="mb-3">
                     <label class="small fw-bold text-primary">Delivery Kab Chahiye?</label>
                     <select id="delivery-type" class="form-select border-primary" onchange="updateCartUI()">
                         <option value="today">Aaj hi (Urgent Delivery)</option>
-                        <option value="future">Future Booking (Advance Required)</option>
+                        <option value="future">Future Booking (Advance Security Lagegi)</option>
                     </select>
                 </div>
                 <button onclick="checkLocation()" class="btn btn-primary w-100 fw-bold py-2 shadow-sm">Check Delivery Area</button>
             </div>
             
             <p id="status-msg" class="mt-3 text-center fw-bold"></p>
-            
             <div id="product-list" class="mt-4"></div>
             
             <div id="checkout-section" style="display:none;" class="mt-4 border-top pt-3">
-                <h6 class="fw-bold mb-3">Aapka Cart (Items & Quantity)</h6>
+                <h6 class="fw-bold mb-3">Aapka Cart (Items & Qty)</h6>
                 <div id="cart-details" class="mb-3"></div>
                 
                 <div class="d-flex justify-content-between align-items-center bg-light p-2 rounded">
@@ -48,12 +52,18 @@
                     <span class="fw-bold text-success fs-5">₹<span id="cart-total">0</span></span>
                 </div>
                 
-                <div id="advance-display-box" class="alert alert-warning mt-2 py-2" style="display: none; font-size: 0.85rem;">
-                    <strong>*Future Booking Advance (60%): ₹<span id="advance-amt">0</span></strong><br>
-                    Baaki ₹<span id="rem-amt">0</span> delivery par.
+                <div id="advance-display-box" class="mt-3">
+                    <div class="alert alert-warning py-2 mb-2" style="font-size: 0.85rem;">
+                        <strong>Advance (60%): ₹<span id="advance-amt">0</span></strong>
+                    </div>
+                    <div class="qr-box text-center" id="qr-section">
+                        <p class="small fw-bold mb-1">Scan to Pay Advance</p>
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=YOUR_UPI_ID_HERE" alt="QR Code" class="img-fluid mb-2">
+                        <p class="text-muted" style="font-size: 0.7rem;">Payment karke screenshot bhejyein</p>
+                    </div>
                 </div>
                 
-                <button onclick="sendOrder()" class="btn btn-warning w-100 fw-bold py-2 shadow mt-3">Confirm Order on WhatsApp</button>
+                <button onclick="sendOrder()" class="btn btn-warning w-100 fw-bold py-3 shadow mt-3">Confirm Order on WhatsApp</button>
             </div>
         </div>
     </div>
@@ -64,6 +74,9 @@
 
         async function checkLocation() {
             const msg = document.getElementById('status-msg');
+            const addr = document.getElementById('address').value;
+            if(!addr) return alert("Kripya address likhein!");
+            
             msg.innerText = "Location check ho rahi hai...";
             navigator.geolocation.getCurrentPosition(async (pos) => {
                 try {
@@ -82,7 +95,7 @@
                         msg.innerText = "Maafi, hum sirf 5km mein delivery karte hain.";
                     }
                 } catch (e) { msg.innerText = "Server Error!"; }
-            }, () => { msg.innerText = "Kripya GPS allow karein."; });
+            }, () => { msg.innerText = "GPS allow karein."; });
         }
 
         async function loadProducts() {
@@ -100,17 +113,14 @@
                 });
                 list.innerHTML = html;
                 document.getElementById('checkout-section').style.display = 'block';
-            } catch (err) { list.innerHTML = "<p>Error loading products.</p>"; }
+            } catch (err) { }
         }
 
         function addToCart(id) {
             const product = productsData.find(p => p._id === id);
             const existingItem = cart.find(item => item._id === id);
-            if (existingItem) {
-                existingItem.quantity += 1;
-            } else {
-                cart.push({ ...product, quantity: 1 });
-            }
+            if (existingItem) { existingItem.quantity += 1; } 
+            else { cart.push({ ...product, quantity: 1 }); }
             updateCartUI();
         }
 
@@ -118,9 +128,7 @@
             const item = cart.find(item => item._id === id);
             if (item) {
                 item.quantity += delta;
-                if (item.quantity <= 0) {
-                    cart = cart.filter(i => i._id !== id);
-                }
+                if (item.quantity <= 0) cart = cart.filter(i => i._id !== id);
             }
             updateCartUI();
         }
@@ -132,57 +140,56 @@
             
             let html = '';
             cart.forEach(item => {
-                html += `
-                    <div class="d-flex justify-content-between align-items-center cart-item">
-                        <div style="flex: 1;">
-                            <span class="fw-bold">${item.name}</span><br>
-                            <small class="text-muted">₹${item.price} per unit</small>
-                        </div>
-                        <div class="d-flex align-items-center">
-                            <button class="qty-btn" onclick="changeQuantity('${item._id}', -1)">-</button>
-                            <span class="mx-2 fw-bold">${item.quantity}</span>
-                            <button class="qty-btn" onclick="changeQuantity('${item._id}', 1)">+</button>
-                            <span class="ms-3 fw-bold" style="min-width: 50px; text-align: right;">₹${item.price * item.quantity}</span>
-                        </div>
-                    </div>`;
+                html += `<div class="d-flex justify-content-between align-items-center cart-item">
+                            <span><b>${item.name}</b> (${item.quantity}${item.unit || 'kg'})</span>
+                            <div>
+                                <button class="qty-btn" onclick="changeQuantity('${item._id}', -1)">-</button>
+                                <button class="qty-btn" onclick="changeQuantity('${item._id}', 1)">+</button>
+                                <span class="ms-2">₹${item.price * item.quantity}</span>
+                            </div>
+                         </div>`;
             });
-            
-            cartDetails.innerHTML = html || '<p class="text-muted small">Cart khali hai</p>';
+            cartDetails.innerHTML = html || 'Cart khali hai';
             document.getElementById('cart-total').innerText = total;
 
-            const advanceBox = document.getElementById('advance-display-box');
+            const qrSection = document.getElementById('qr-section');
+            const advBox = document.getElementById('advance-display-box');
+            
             if (deliveryType === 'future' && total > 0) {
-                advanceBox.style.display = 'block';
+                advBox.style.display = 'block';
+                qrSection.style.display = 'block';
                 document.getElementById('advance-amt').innerText = (total * 0.6).toFixed(2);
                 document.getElementById('rem-amt').innerText = (total * 0.4).toFixed(2);
             } else {
-                advanceBox.style.display = 'none';
+                advBox.style.display = 'none';
+                qrSection.style.display = 'none';
             }
         }
 
         function sendOrder() {
             const mobile = document.getElementById('mobile').value;
+            const address = document.getElementById('address').value;
             const deliveryType = document.getElementById('delivery-type').value;
-            if(!mobile || cart.length === 0) return alert("Kripya details bharein!");
+            if(!mobile || !address || cart.length === 0) return alert("Address aur details bharein!");
             
             const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            const typeText = deliveryType === 'future' ? "FUTURE BOOKING (Advance Required)" : "URGENT (Today)";
-            
             let itemsDetails = "";
             cart.forEach(item => {
                 itemsDetails += `✅ ${item.name} (${item.quantity}${item.unit || 'kg'}) = ₹${item.price * item.quantity}\n`;
             });
             
-            let text = `*NAYA ORDER - BIKANER FRESH VEGGIES*\n\n` +
+            const typeText = deliveryType === 'future' ? "FUTURE BOOKING" : "URGENT DELIVERY";
+            
+            let text = `*NAYA ORDER - BIKANER FRESH VEGGIES*\n` +
                        `📅 *Type:* ${typeText}\n` +
+                       `📍 *Address:* ${address}\n` +
                        `---------------------------\n` +
                        `${itemsDetails}` +
                        `---------------------------\n` +
-                       `💰 *Total Bill:* ₹${total}\n`;
+                       `💰 *Total:* ₹${total}\n`;
             
             if(deliveryType === 'future') {
-                text += `💳 *Advance (60%):* ₹${(total*0.6).toFixed(2)}\n` +
-                        `🚚 *Remaining:* ₹${(total*0.4).toFixed(2)}\n`;
+                text += `💳 *Advance (60%):* ₹${(total*0.6).toFixed(2)}\n`;
             }
 
             text += `\n📞 *Contact:* ${mobile}\n_Kripya payment screenshot bhejein._`;
