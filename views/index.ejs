@@ -4,44 +4,51 @@
     <title>Bikaner Fresh Veggies</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&libraries=places"></script>
     <style>
         body { background-color: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
         .order-card { max-width: 500px; margin: 20px auto; padding: 25px; border-radius: 20px; border: none; }
         .product-item { background: #ffffff; border-radius: 12px; padding: 12px; margin-bottom: 10px; border-left: 5px solid #198754; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .hindi-name { font-size: 0.9rem; color: #198754; font-weight: 500; }
+        .hindi-text { color: #198754; font-size: 0.85rem; font-weight: 500; }
         .btn-add { background-color: #198754; color: white; border: none; padding: 5px 15px; border-radius: 8px; font-weight: bold; }
         .qty-btn { width: 30px; height: 30px; border-radius: 50%; border: 1px solid #ddd; background: white; font-weight: bold; cursor: pointer; }
         .qr-box { border: 2px dashed #198754; padding: 15px; border-radius: 15px; background: #fff; display: none; margin-top: 15px; }
-        .pac-container { border-radius: 10px; margin-top: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); } /* Suggestion box style */
     </style>
 </head>
 <body>
     <div class="container">
         <div class="card order-card shadow-lg">
             <h2 class="text-center text-success fw-bold">Bikaner Fresh Veggies</h2>
-            <p class="text-center text-muted small">Mandi se seedha aapke ghar tak</p>
+            <p class="text-center text-muted small">ताज़ा सब्ज़ियाँ - मंडी से सीधे घर तक</p>
             <hr>
             
             <div id="login-section">
                 <div class="mb-2">
-                    <label class="small fw-bold">Mobile Number</label>
+                    <label class="small fw-bold">Mobile Number (मोबाइल नंबर)</label>
                     <input type="number" id="mobile" placeholder="98290XXXXX" class="form-control py-2">
                 </div>
                 
                 <div class="mb-2">
-                    <label class="small fw-bold text-danger">Delivery Address (Search karein)</label>
-                    <input id="address" type="text" placeholder="Gali, Mohalla ya Landmark search karein..." class="form-control">
-                    <small class="text-muted" style="font-size: 0.7rem;">📍 Type karte hi Google aapka area dhoond lega</small>
+                    <div class="d-flex justify-content-between">
+                        <label class="small fw-bold text-danger">Delivery Address (पता)</label>
+                        <button onclick="autoLocate()" class="btn btn-outline-primary btn-sm px-2 py-0">📍 Auto-Detect</button>
+                    </div>
+                    <textarea id="address" placeholder="Gali, Mohalla, Area..." class="form-control mt-1" rows="2"></textarea>
+                    <small id="addr-status" class="text-muted" style="font-size: 0.7rem;"></small>
                 </div>
 
                 <div class="mb-3">
                     <label class="small fw-bold text-primary">Delivery Kab Chahiye?</label>
-                    <select id="delivery-type" class="form-select border-primary" onchange="updateCartUI()">
-                        <option value="today">Aaj hi (Cash on Delivery)</option>
-                        <option value="future">Future Booking (60% Advance)</option>
+                    <select id="delivery-type" class="form-select border-primary" onchange="toggleDateAndUI()">
+                        <option value="today">Aaj hi (Urgent - COD)</option>
+                        <option value="future">Future Booking (Advance Booking)</option>
                     </select>
                 </div>
+
+                <div id="date-section" class="mb-3" style="display:none;">
+                    <label class="small fw-bold text-danger">Delivery Date (डिलीवरी की तारीख)</label>
+                    <input type="date" id="delivery-date" class="form-control border-danger">
+                </div>
+
                 <button onclick="checkLocation()" class="btn btn-primary w-100 fw-bold py-2 shadow-sm">Confirm & Shop Now</button>
             </div>
             
@@ -49,17 +56,19 @@
             <div id="product-list" class="mt-4"></div>
             
             <div id="checkout-section" style="display:none;" class="mt-4 border-top pt-3">
-                <h6 class="fw-bold mb-3">Aapka Cart</h6>
+                <h6 class="fw-bold mb-3">Aapka Cart (आपका कार्ट)</h6>
                 <div id="cart-details" class="mb-3"></div>
-                <div class="d-flex justify-content-between align-items-center bg-light p-2 rounded mb-2">
+                
+                <div class="d-flex justify-content-between align-items-center bg-light p-2 rounded mb-2 border">
                     <span class="fw-bold">Total Bill:</span>
                     <span class="fw-bold text-success fs-5">₹<span id="cart-total">0</span></span>
                 </div>
                 
                 <div id="advance-display-box" class="qr-box text-center">
                     <h6 class="text-warning fw-bold">Advance Payment (60%): ₹<span id="advance-amt">0</span></h6>
-                    <img id="qr-img" src="" alt="UPI QR Code" class="img-fluid mb-2 border p-2 bg-white" style="max-width: 180px;">
-                    <p class="fw-bold small text-dark">UPI: 8740871855@ptsbi</p>
+                    <img id="qr-img" src="" alt="UPI QR Code" class="img-fluid mb-2 border p-2 bg-white" style="max-width: 200px;">
+                    <p class="fw-bold small text-dark mb-1">UPI ID: 8740871855@ptsbi</p>
+                    <p class="text-danger small" style="font-size: 0.7rem;">Scan karke payment screenshot bhejein</p>
                 </div>
                 
                 <button onclick="sendOrder()" class="btn btn-warning w-100 fw-bold py-3 shadow mt-3">Confirm Order on WhatsApp</button>
@@ -71,71 +80,136 @@
         let cart = [];
         let productsData = [];
 
-        // --- GOOGLE AUTOCOMPLETE JUGAD ---
-        function initAutocomplete() {
-            const input = document.getElementById('address');
-            // Bikaner ke coordinates pe focus karne ke liye
-            const options = {
-                componentRestrictions: { country: "in" },
-                fields: ["address_components", "geometry", "icon", "name"],
-                strictBounds: false,
-            };
-            const autocomplete = new google.maps.places.Autocomplete(input, options);
+        function toggleDateAndUI() {
+            const type = document.getElementById('delivery-type').value;
+            const dateSection = document.getElementById('date-section');
+            if (type === 'future') {
+                dateSection.style.display = 'block';
+                let today = new Date().toISOString().split('T')[0];
+                document.getElementById('delivery-date').setAttribute('min', today);
+            } else {
+                dateSection.style.display = 'none';
+            }
+            updateCartUI();
         }
-        google.maps.event.addDomListener(window, 'load', initAutocomplete);
+
+        async function autoLocate() {
+            const status = document.getElementById('addr-status');
+            status.innerText = "Finding address...";
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(async (pos) => {
+                    try {
+                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&accept-language=hi`);
+                        const data = await res.json();
+                        document.getElementById('address').value = data.display_name;
+                        status.innerText = "✅ Address Detected!";
+                    } catch (e) { status.innerText = "Error! Manual type karein."; }
+                });
+            }
+        }
+
+        async function checkLocation() {
+            const addr = document.getElementById('address').value;
+            if(!addr) return alert("Kripya address bharein!");
+            const msg = document.getElementById('status-msg');
+            msg.innerText = "Verifying Area...";
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const res = await fetch('/api/user/check-radius', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+                });
+                const data = await res.json();
+                if(data.inRadius) {
+                    msg.className = "text-success mt-2 text-center";
+                    msg.innerText = "Verified! Loading Veggies...";
+                    await loadProducts();
+                } else {
+                    msg.className = "text-danger mt-2 text-center";
+                    msg.innerText = "Maafi, hum yahan delivery nahi karte.";
+                }
+            });
+        }
 
         async function loadProducts() {
-            const list = document.getElementById('product-list');
-            try {
-                const res = await fetch('/api/products');
-                productsData = await res.json();
-                let html = '<h6 class="fw-bold mb-3 text-secondary">Taaza Sabziyan (Fresh Veggies):</h6>';
-                productsData.forEach(p => {
-                    // Products list mein Hindi naam add kiya
-                    html += `<div class="d-flex justify-content-between align-items-center product-item">
-                                <div>
-                                    <span class="fw-bold">${p.name}</span> <span class="hindi-name">(${p.hindiName || 'सब्जी'})</span><br>
-                                    <small class="text-muted">₹${p.price}/${p.unit || 'kg'}</small>
-                                </div>
-                                <button onclick="addToCart('${p._id}')" class="btn-add">Add +</button>
-                             </div>`;
-                });
-                list.innerHTML = html;
-                document.getElementById('checkout-section').style.display = 'block';
-            } catch (err) { }
+            const res = await fetch('/api/products');
+            productsData = await res.json();
+            let html = '<h6 class="fw-bold mb-3 text-secondary">Sabziyan (सब्जियां):</h6>';
+            productsData.forEach(p => {
+                html += `<div class="d-flex justify-content-between align-items-center product-item">
+                            <div><span class="fw-bold">${p.name}</span> <br><span class="hindi-text">(${p.hindiName || 'ताज़ा'})</span><br>
+                            <small class="text-muted">₹${p.price}/${p.unit || 'kg'}</small></div>
+                            <button onclick="addToCart('${p._id}')" class="btn-add">Add +</button>
+                         </div>`;
+            });
+            document.getElementById('product-list').innerHTML = html;
+            document.getElementById('checkout-section').style.display = 'block';
         }
 
-        // --- BAAKI LOGIC SAME RHEGA (Add to cart, Update UI with Auto-QR) ---
+        function addToCart(id) {
+            const product = productsData.find(p => p._id === id);
+            const item = cart.find(i => i._id === id);
+            if (item) item.quantity += 1; else cart.push({ ...product, quantity: 1 });
+            updateCartUI();
+        }
+
+        function changeQuantity(id, delta) {
+            const item = cart.find(i => i._id === id);
+            if (item) {
+                item.quantity += delta;
+                if (item.quantity <= 0) cart = cart.filter(i => i._id !== id);
+            }
+            updateCartUI();
+        }
+
         function updateCartUI() {
-            const cartDetails = document.getElementById('cart-details');
             const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            const deliveryType = document.getElementById('delivery-type').value;
-            
+            const type = document.getElementById('delivery-type').value;
             let html = '';
             cart.forEach(item => {
-                html += `<div class="d-flex justify-content-between align-items-center p-2">
-                            <span><b>${item.name}</b> (${item.quantity}${item.unit || 'kg'})</span>
+                html += `<div class="d-flex justify-content-between align-items-center p-2 border-bottom">
+                            <span><b>${item.name}</b> (${item.quantity}${item.unit})</span>
                             <div class="d-flex align-items-center">
                                 <button class="qty-btn" onclick="changeQuantity('${item._id}', -1)">-</button>
-                                <span class="mx-2">${item.quantity}</span>
+                                <span class="mx-2 fw-bold">${item.quantity}</span>
                                 <button class="qty-btn" onclick="changeQuantity('${item._id}', 1)">+</button>
                             </div>
                          </div>`;
             });
-            cartDetails.innerHTML = html;
+            document.getElementById('cart-details').innerHTML = html || 'Cart khali hai';
             document.getElementById('cart-total').innerText = total;
 
-            if (deliveryType === 'future' && total > 0) {
-                const advanceAmount = (total * 0.6).toFixed(2);
-                document.getElementById('advance-display-box').style.display = 'block';
-                document.getElementById('advance-amt').innerText = advanceAmount;
-                const upiLink = `upi://pay?pa=8740871855@ptsbi&pn=BikanerFreshVeggies&am=${advanceAmount}&cu=INR`;
-                document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiLink)}`;
-            } else {
-                document.getElementById('advance-display-box').style.display = 'none';
-            }
+            const advBox = document.getElementById('advance-display-box');
+            if (type === 'future' && total > 0) {
+                const advance = (total * 0.6).toFixed(2);
+                advBox.style.display = 'block';
+                document.getElementById('advance-amt').innerText = advance;
+                const upiLink = `upi://pay?pa=8740871855@ptsbi&pn=BikanerFreshVeggies&am=${advance}&cu=INR`;
+                document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=225x225&data=${encodeURIComponent(upiLink)}`;
+            } else { advBox.style.display = 'none'; }
         }
-        // ... (changeQuantity, checkLocation, sendOrder same as before)
+
+        function sendOrder() {
+            const mobile = document.getElementById('mobile').value;
+            const address = document.getElementById('address').value;
+            const type = document.getElementById('delivery-type').value;
+            const date = document.getElementById('delivery-date').value;
+            if(!mobile || !address || cart.length === 0) return alert("Details missing!");
+            if(type === 'future' && !date) return alert("Delivery date chunein!");
+
+            let bill = cart.map(i => `✅ ${i.name} (${i.quantity}${i.unit}) = ₹${i.price * i.quantity}`).join('\n');
+            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            
+            let text = `*NAYA ORDER - BIKANER FRESH VEGGIES*\n\n` +
+                       `📅 *Type:* ${type === 'future' ? 'FUTURE BOOKING' : 'URGENT'}\n` +
+                       (type === 'future' ? `📆 *Date:* ${date}\n` : '') +
+                       `📍 *Address:* ${address}\n---------------------------\n${bill}\n---------------------------\n` +
+                       `💰 *Total:* ₹${total}\n` +
+                       (type === 'future' ? `💳 *Advance (60%):* ₹${(total*0.6).toFixed(2)}\n` : '') +
+                       `📞 *Contact:* ${mobile}`;
+            
+            window.open(`https://wa.me/918740871855?text=${encodeURIComponent(text)}`);
+        }
     </script>
 </body>
 </html>
