@@ -8,9 +8,9 @@
         body { background-color: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
         .order-card { max-width: 500px; margin: 20px auto; padding: 25px; border-radius: 20px; border: none; }
         .product-item { background: #ffffff; border-radius: 12px; padding: 12px; margin-bottom: 10px; border-left: 5px solid #198754; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .cart-item { background: #fdfdfd; padding: 8px; border-bottom: 1px solid #eee; font-size: 0.9rem; }
         .btn-add { background-color: #198754; color: white; border: none; padding: 5px 15px; border-radius: 8px; font-weight: bold; }
-        .btn-remove { color: #dc3545; cursor: pointer; font-weight: bold; border: none; background: none; }
+        .btn-remove { color: #dc3545; cursor: pointer; font-weight: bold; border: none; background: none; margin-left: 10px; }
+        .cart-item { background: #fdfdfd; padding: 8px; border-bottom: 1px solid #eee; font-size: 0.9rem; }
     </style>
 </head>
 <body>
@@ -23,7 +23,7 @@
             <div id="login-section">
                 <div class="mb-2">
                     <label class="small fw-bold">Mobile Number</label>
-                    <input type="number" id="mobile" placeholder="98290XXXXX" class="form-control py-2">
+                    <input type="number" id="mobile" placeholder="Mobile Number" class="form-control py-2">
                 </div>
                 <div class="mb-2">
                     <label class="small fw-bold">WhatsApp Number</label>
@@ -63,14 +63,12 @@
         let cart = [];
         let productsData = [];
 
-        // WhatsApp aur Mobile sync karne ke liye
         function syncNumbers() {
             if(document.getElementById('sync').checked) {
                 document.getElementById('whatsapp').value = document.getElementById('mobile').value;
             }
         }
 
-        // Location check karne ka logic
         async function checkLocation() {
             const msg = document.getElementById('status-msg');
             msg.innerText = "Location check ho rahi hai...";
@@ -87,28 +85,29 @@
                     if(data.inRadius) {
                         msg.className = "text-success mt-2 text-center";
                         msg.innerText = "Sahi hai! Aap delivery area mein hain.";
-                        loadProducts(); // Sabziyan load karein
+                        await loadProducts();
                     } else {
                         msg.className = "text-danger mt-2 text-center";
                         msg.innerText = data.error || "Maafi, hum sirf 5km mein delivery karte hain.";
                     }
                 } catch (e) {
-                    msg.innerText = "Server error! Database check karein.";
+                    msg.innerText = "Server Error! Kripya dobara koshish karein.";
                 }
             }, () => {
                 msg.innerText = "Kripya GPS location allow karein.";
             });
         }
 
-        // Database se sabziyan laane ka logic
         async function loadProducts() {
             const list = document.getElementById('product-list');
+            list.innerHTML = "<p class='text-center small text-muted'>Mandi se sabziyan aa rahi hain...</p>";
+            
             try {
                 const res = await fetch('/api/products');
                 productsData = await res.json();
                 
-                if (productsData.length === 0) {
-                    list.innerHTML = "<p class='text-center small'>Mandi se sabziyan aa rahi hain...</p>";
+                if (!productsData || productsData.length === 0) {
+                    list.innerHTML = "<p class='text-center small'>Abhi koi sabzi available nahi hai.</p>";
                     return;
                 }
 
@@ -126,24 +125,21 @@
                 list.innerHTML = html;
                 document.getElementById('checkout-section').style.display = 'block';
             } catch (err) {
-                list.innerHTML = "<p class='text-danger text-center'>Connection Error!</p>";
+                list.innerHTML = "<p class='text-danger text-center'>Sabziyan load nahi ho payi. Database check karein.</p>";
             }
         }
 
-        // Cart mein sabzi add karna
         function addToCart(id) {
             const product = productsData.find(p => p._id === id);
-            cart.push({...product, cartId: Date.now()}); // Unique ID for delete
+            cart.push({...product, cartId: Date.now()});
             updateCartUI();
         }
 
-        // Cart se sabzi hatana
         function removeFromCart(cartId) {
             cart = cart.filter(item => item.cartId !== cartId);
             updateCartUI();
         }
 
-        // Cart screen update karna
         function updateCartUI() {
             const cartDetails = document.getElementById('cart-details');
             const total = cart.reduce((sum, item) => sum + item.price, 0);
@@ -159,15 +155,14 @@
             
             cartDetails.innerHTML = html || '<p class="text-muted small">Cart khali hai</p>';
             document.getElementById('cart-total').innerText = total;
-            document.getElementById('advance-amt').innerText = (total * 0.6).toFixed(2); // 60% Advance
+            document.getElementById('advance-amt').innerText = (total * 0.6).toFixed(2);
             document.getElementById('rem-amt').innerText = (total * 0.4).toFixed(2);
         }
 
-        // WhatsApp par order bhejna
         function sendOrder() {
             const mobile = document.getElementById('mobile').value;
             const waNum = document.getElementById('whatsapp').value;
-            if(!mobile || cart.length === 0) return alert("Kripya mobile number aur sabziyan chuniye!");
+            if(!mobile || cart.length === 0) return alert("Kripya details bharein!");
             
             const total = cart.reduce((sum, item) => sum + item.price, 0);
             const items = cart.map(i => i.name).join(', ');
@@ -175,12 +170,11 @@
             
             const text = `*NAYA ORDER - BIKANER FRESH VEGGIES*\n\n` +
                          `🥦 *Sabziyan:* ${items}\n` +
-                         `💰 *Total Bill:* ₹${total}\n` +
-                         `💳 *Advance Security (60%):* ₹${advance}\n` +
-                         `🚚 *Remaining (Pay on Delivery):* ₹${(total*0.4).toFixed(2)}\n\n` +
+                         `💰 *Total:* ₹${total}\n` +
+                         `💳 *Advance (60%):* ₹${advance}\n` +
+                         `🚚 *Remaining:* ₹${(total*0.4).toFixed(2)}\n\n` +
                          `📞 *Contact:* ${mobile}\n` +
-                         `✅ *WhatsApp:* ${waNum}\n\n` +
-                         `_Kripya payment confirm karke screenshot bhejein._`;
+                         `✅ *WhatsApp:* ${waNum}`;
                          
             window.open(`https://wa.me/918740871855?text=${encodeURIComponent(text)}`);
         }
