@@ -40,7 +40,7 @@
                     <label class="small fw-bold text-primary">Delivery Kab Chahiye?</label>
                     <select id="delivery-type" class="form-select border-primary" onchange="updateCartUI()">
                         <option value="today">Aaj hi (Cash on Delivery)</option>
-                        <option value="future">Future Booking (60% Advance)</option>
+                        <option value="future">Future Booking (60% Advance Required)</option>
                     </select>
                 </div>
                 <button onclick="checkLocation()" class="btn btn-primary w-100 fw-bold py-2 shadow-sm">Confirm & Shop Now</button>
@@ -52,6 +52,7 @@
             <div id="checkout-section" style="display:none;" class="mt-4 border-top pt-3">
                 <h6 class="fw-bold mb-3">Aapka Cart</h6>
                 <div id="cart-details" class="mb-3"></div>
+                
                 <div class="d-flex justify-content-between align-items-center bg-light p-2 rounded mb-2">
                     <span class="fw-bold">Total Bill:</span>
                     <span class="fw-bold text-success fs-5">₹<span id="cart-total">0</span></span>
@@ -59,8 +60,10 @@
                 
                 <div id="advance-display-box" class="qr-box text-center">
                     <h6 class="text-warning fw-bold">Advance Payment (60%): ₹<span id="advance-amt">0</span></h6>
+                    <p class="small text-muted mb-2">Scan karke automatic payment karein</p>
                     <img id="qr-img" src="" alt="UPI QR Code" class="img-fluid mb-2 border p-2 bg-white" style="max-width: 180px;">
-                    <p class="fw-bold small text-dark">UPI: 8740871855@ptsbi</p>
+                    <p class="fw-bold small text-dark">UPI ID: 8740871855@ptsbi</p>
+                    <p class="text-danger" style="font-size: 0.7rem;">Payment link par amount automatic set hai</p>
                 </div>
                 
                 <button onclick="sendOrder()" class="btn btn-warning w-100 fw-bold py-3 shadow mt-3">Confirm Order on WhatsApp</button>
@@ -72,7 +75,6 @@
         let cart = [];
         let productsData = [];
 
-        // --- NEW AUTO LOCATE LOGIC ---
         function autoLocate() {
             const addrField = document.getElementById('address');
             const status = document.getElementById('addr-status');
@@ -82,35 +84,23 @@
                 navigator.geolocation.getCurrentPosition(async (position) => {
                     const lat = position.coords.latitude;
                     const lng = position.coords.longitude;
-                    
                     try {
-                        // OpenStreetMap (Free) API for Geocoding
                         const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`);
                         const data = await response.json();
                         if(data.display_name) {
                             addrField.value = data.display_name;
                             status.innerText = "✅ Address found!";
-                        } else {
-                            status.innerText = "Could not get address, please type manually.";
                         }
-                    } catch (error) {
-                        status.innerText = "Error fetching address.";
-                    }
-                }, () => {
-                    status.innerText = "GPS permission denied.";
-                });
-            } else {
-                status.innerText = "Browser doesn't support GPS.";
+                    } catch (error) { status.innerText = "Error fetching address."; }
+                }, () => { status.innerText = "GPS permission denied."; });
             }
         }
 
         async function checkLocation() {
             const addr = document.getElementById('address').value;
-            if(!addr) return alert("Kripya address likhein ya Auto-Detect karein!");
-            
+            if(!addr) return alert("Kripya address likhein!");
             const msg = document.getElementById('status-msg');
             msg.innerText = "Verifying Area...";
-            
             navigator.geolocation.getCurrentPosition(async (pos) => {
                 try {
                     const res = await fetch('/api/user/check-radius', {
@@ -173,11 +163,11 @@
             
             let html = '';
             cart.forEach(item => {
-                html += `<div class="d-flex justify-content-between align-items-center cart-item">
+                html += `<div class="d-flex justify-content-between align-items-center cart-item p-2">
                             <span><b>${item.name}</b> (${item.quantity}${item.unit || 'kg'})</span>
                             <div class="d-flex align-items-center">
                                 <button class="qty-btn" onclick="changeQuantity('${item._id}', -1)">-</button>
-                                <span class="mx-2">${item.quantity}</span>
+                                <span class="mx-2 fw-bold">${item.quantity}</span>
                                 <button class="qty-btn" onclick="changeQuantity('${item._id}', 1)">+</button>
                                 <span class="ms-3 fw-bold">₹${item.price * item.quantity}</span>
                             </div>
@@ -191,18 +181,19 @@
                 const advanceAmount = (total * 0.6).toFixed(2);
                 advBox.style.display = 'block';
                 document.getElementById('advance-amt').innerText = advanceAmount;
-                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=8740871855@ptsbi&pn=BikanerFreshVeggies&am=${advanceAmount}&cu=INR`;
+                
+                // Automatic Amount UPI QR Generator
+                const upiID = "8740871855@ptsbi";
+                const upiLink = `upi://pay?pa=${upiID}&pn=BikanerFreshVeggies&am=${advanceAmount}&cu=INR`;
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=225x225&data=${encodeURIComponent(upiLink)}`;
                 document.getElementById('qr-img').src = qrUrl;
-            } else {
-                advBox.style.display = 'none';
-            }
+            } else { advBox.style.display = 'none'; }
         }
 
         function sendOrder() {
             const mobile = document.getElementById('mobile').value;
             const address = document.getElementById('address').value;
             const deliveryType = document.getElementById('delivery-type').value;
-            
             if(!mobile || !address || cart.length === 0) return alert("Details missing!");
             
             const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -212,13 +203,14 @@
             });
             
             let text = `*NAYA ORDER - BIKANER FRESH VEGGIES*\n\n` +
-                       `📅 *Type:* ${deliveryType === 'future' ? 'Future' : 'Urgent'}\n` +
+                       `📅 *Type:* ${deliveryType === 'future' ? 'Future Booking' : 'Urgent'}\n` +
                        `📍 *Address:* ${address}\n` +
                        `---------------------------\n` +
                        `${itemsDetails}` +
                        `---------------------------\n` +
                        `💰 *Total:* ₹${total}\n` +
-                       `📞 *Contact:* ${mobile}`;
+                       `📞 *Contact:* ${mobile}\n\n` +
+                       (deliveryType === 'future' ? `💳 *Advance (60%):* ₹${(total*0.6).toFixed(2)}` : `_Cash on Delivery_`);
             
             window.open(`https://wa.me/918740871855?text=${encodeURIComponent(text)}`);
         }
