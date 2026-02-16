@@ -8,13 +8,12 @@
         body { background-color: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
         .order-card { max-width: 500px; margin: 20px auto; padding: 25px; border-radius: 20px; border: none; }
         .product-item { background: #ffffff; border-radius: 12px; padding: 12px; margin-bottom: 10px; border-left: 5px solid #198754; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .hindi-text { color: #198754; font-size: 0.85rem; font-weight: 500; }
         .btn-add { background-color: #198754; color: white; border: none; padding: 5px 15px; border-radius: 8px; font-weight: bold; }
         .qty-btn { width: 30px; height: 30px; border-radius: 50%; border: 1px solid #ddd; background: white; font-weight: bold; cursor: pointer; }
         .qr-box { border: 2px dashed #198754; padding: 15px; border-radius: 15px; background: #fff; display: none; margin-top: 15px; }
-        /* Search Suggestion Styling */
         #suggestion-box { position: absolute; width: 100%; background: white; border-radius: 8px; z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none; }
         .suggestion-item { padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 0.85rem; }
-        .suggestion-item:hover { background: #f8f9fa; }
     </style>
 </head>
 <body>
@@ -27,7 +26,7 @@
             <div id="login-section">
                 <div class="mb-2">
                     <label class="small fw-bold">Mobile Number (मोबाइल)</label>
-                    <input type="number" id="mobile" value="7023629398" class="form-control py-2">
+                    <input type="number" id="mobile" placeholder="Apna Number Likhein" class="form-control py-2">
                 </div>
                 
                 <div class="mb-2 position-relative">
@@ -49,7 +48,7 @@
                 </div>
 
                 <div id="date-section" class="mb-3" style="display:none;">
-                    <label class="small fw-bold text-danger">Delivery Date (डिलीवरी तारीख)</label>
+                    <label class="small fw-bold text-danger">Delivery Date (तारीख)</label>
                     <input type="date" id="delivery-date" class="form-control border-danger">
                 </div>
 
@@ -82,11 +81,9 @@
         let cart = [];
         let productsData = [];
 
-        // Free Address Suggestions logic (Google API Key ki zaroorat nahi hai)
         async function fetchSuggestions(query) {
             const box = document.getElementById('suggestion-box');
             if (query.length < 3) { box.style.display = 'none'; return; }
-
             try {
                 const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}, Bikaner&limit=5`);
                 const data = await res.json();
@@ -94,7 +91,7 @@
                     box.innerHTML = data.map(item => `<div class="suggestion-item" onclick="selectAddr('${item.display_name}')">${item.display_name}</div>`).join('');
                     box.style.display = 'block';
                 }
-            } catch (e) { console.log("Suggestion error"); }
+            } catch (e) { }
         }
 
         function selectAddr(addr) {
@@ -127,7 +124,9 @@
 
         async function checkLocation() {
             const addr = document.getElementById('address').value;
-            if(!addr) return alert("Address bharein!");
+            const mobile = document.getElementById('mobile').value;
+            if(!addr || !mobile) return alert("Number aur Address dono bharein!");
+            
             const msg = document.getElementById('status-msg');
             msg.innerText = "Verifying Area...";
             navigator.geolocation.getCurrentPosition(async (pos) => {
@@ -139,7 +138,7 @@
                 const data = await res.json();
                 if(data.inRadius) {
                     msg.className = "text-success mt-2 text-center";
-                    msg.innerText = "Verified! Start Shopping.";
+                    msg.innerText = "Verified! Loading Veggies...";
                     loadProducts();
                 } else {
                     msg.className = "text-danger mt-2 text-center";
