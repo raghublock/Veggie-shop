@@ -8,7 +8,6 @@
         body { background-color: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
         .order-card { max-width: 500px; margin: 20px auto; padding: 25px; border-radius: 20px; border: none; }
         .product-item { background: #ffffff; border-radius: 12px; padding: 12px; margin-bottom: 10px; border-left: 5px solid #198754; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .hindi-text { color: #198754; font-size: 0.85rem; font-weight: 500; }
         .btn-add { background-color: #198754; color: white; border: none; padding: 5px 15px; border-radius: 8px; font-weight: bold; }
         .qty-btn { width: 30px; height: 30px; border-radius: 50%; border: 1px solid #ddd; background: white; font-weight: bold; cursor: pointer; }
         .qr-box { border: 2px dashed #198754; padding: 15px; border-radius: 15px; background: #fff; display: none; margin-top: 15px; }
@@ -27,7 +26,7 @@
             <div id="login-section">
                 <div class="mb-2">
                     <label class="small fw-bold">Mobile Number (मोबाइल)</label>
-                    <input type="number" id="mobile" placeholder="अपना नंबर लिखें" class="form-control py-2">
+                    <input type="number" id="mobile" placeholder="अपना नंबर लिखें" class="form-control py-2" oninput="checkReturningCustomer(this.value)">
                 </div>
                 
                 <div class="mb-2 position-relative">
@@ -52,7 +51,7 @@
                     <label class="small fw-bold text-danger">Delivery Date (तारीख)</label>
                     <input type="date" id="delivery-date" class="form-control border-danger">
                     <div class="rate-warning mt-2">
-                        <b>⚠️ नोट:</b> बाकी 40% पेमेंट डिलीवरी वाले दिन के मंडी भाव (Market Rate) के हिसाब से कम या ज्यादा हो सकती है।
+                        <b>⚠️ नोट:</b> बाकी 40% पेमेंट डिलीवरी वाले दिन के मंडी भाव के हिसाब से होगी।
                     </div>
                 </div>
 
@@ -84,6 +83,22 @@
     <script>
         let cart = [];
         let productsData = [];
+
+        // Naya Feature: Purane customer ka address nikalna
+        async function checkReturningCustomer(mobile) {
+            if (mobile.length === 10) {
+                const res = await fetch('/api/customer/get-address', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ mobile })
+                });
+                const data = await res.json();
+                if (data.address) {
+                    document.getElementById('address').value = data.address;
+                    document.getElementById('addr-status').innerText = "✅ Purana address mil gaya!";
+                }
+            }
+        }
 
         async function fetchSuggestions(query) {
             const box = document.getElementById('suggestion-box');
@@ -156,11 +171,13 @@
             productsData = await res.json();
             let html = '<h6 class="fw-bold mb-3 text-secondary">Sabziyan (सब्जियां):</h6>';
             productsData.forEach(p => {
-                html += `<div class="d-flex justify-content-between align-items-center product-item">
-                            <div><span class="fw-bold">${p.name}</span> <br><span class="hindi-text">(${p.hindiName || 'ताज़ा'})</span><br>
-                            <small class="text-muted">₹${p.price}/${p.unit || 'kg'}</small></div>
-                            <button onclick="addToCart('${p._id}')" class="btn-add">Add +</button>
-                         </div>`;
+                if (p.stock > 0) {
+                    html += `<div class="d-flex justify-content-between align-items-center product-item">
+                                <div><span class="fw-bold">${p.name}</span> <br><span class="hindi-text">(${p.hindiName || 'ताज़ा'})</span><br>
+                                <small class="text-muted">₹${p.price}/${p.unit || 'kg'}</small></div>
+                                <button onclick="addToCart('${p._id}')" class="btn-add">Add +</button>
+                             </div>`;
+                }
             });
             document.getElementById('product-list').innerHTML = html;
             document.getElementById('checkout-section').style.display = 'block';
@@ -209,12 +226,19 @@
             } else { advBox.style.display = 'none'; }
         }
 
-        function sendOrder() {
+        async function sendOrder() {
             const mobile = document.getElementById('mobile').value;
             const address = document.getElementById('address').value;
             const type = document.getElementById('delivery-type').value;
             const date = document.getElementById('delivery-date').value;
             if(!mobile || !address || cart.length === 0) return alert("Details missing!");
+
+            // Order se pehle customer details save karein
+            await fetch('/api/customer/save', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ mobile, address })
+            });
 
             let bill = cart.map(i => `✅ ${i.name} (${i.quantity}${i.unit}) = ₹${i.price * i.quantity}`).join('\n');
             const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -223,8 +247,8 @@
                        `📅 *Type:* ${type === 'future' ? 'FUTURE BOOKING' : 'URGENT'}\n` +
                        (type === 'future' ? `📆 *Date:* ${date}\n` : '') +
                        `📍 *Address:* ${address}\n---------------------------\n${bill}\n---------------------------\n` +
-                       `💰 *Total (Current Rate):* ₹${total}\n` +
-                       (type === 'future' ? `💳 *Advance (60%):* ₹${(total*0.6).toFixed(2)}\n\n⚠️ *Note:* Baaki payment delivery date ke rate ke hisab se lagegi.` : '') +
+                       `💰 *Total:* ₹${total}\n` +
+                       (type === 'future' ? `💳 *Advance Paid (60%):* ₹${(total*0.6).toFixed(2)}\n\n⚠️ *Note:* Baaki 40% delivery date ke bhav par hoga.` : '') +
                        `\n📞 *Contact:* ${mobile}`;
             
             window.open(`https://wa.me/918740871855?text=${encodeURIComponent(text)}`);
