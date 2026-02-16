@@ -5,7 +5,7 @@ require('dotenv').config();
 
 const app = express();
 app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // Form data handle karne ke liye
+app.use(express.urlencoded({ extended: true }));
 
 // EJS Setup
 app.set('view engine', 'ejs');
@@ -16,10 +16,10 @@ mongoose.connect(process.env.MONGODB_URI)
     .then(() => console.log("Bikaner DB Connected"))
     .catch(err => console.error("DB Connection Fail:", err));
 
-// 2. Product Model (Hindi Name support ke saath)
+// 2. Product Model
 const productSchema = new mongoose.Schema({
     name: String,
-    hindiName: String, // Naya field Hindi ke liye
+    hindiName: String,
     price: Number,
     stock: Number,
     unit: String,
@@ -41,11 +41,10 @@ app.get('/', (req, res) => {
 // 5. Admin Page Route (Password Protected)
 app.get('/admin', (req, res) => {
     const { pass } = req.query;
-    // Password 'bhati@123' rakha hai, aap badal sakte hain
     if (pass === 'bhati@123') {
         res.render('admin');
     } else {
-        res.send("<h1>Unauthorized! Sahi password ke saath URL kholiye.</h1><p>Example: /admin?pass=aapka_password</p>");
+        res.send("<h1>Unauthorized! Sahi password ke saath URL kholiye.</h1><p>Example: /admin?pass=bhati@123</p>");
     }
 });
 
@@ -54,7 +53,7 @@ app.get('/admin', (req, res) => {
 // 6. Radius Check API
 app.post('/api/user/check-radius', (req, res) => {
     const { lat, lng } = req.body;
-    const R = 6371; // km
+    const R = 6371; 
     const dLat = (SHOP_LAT - lat) * Math.PI / 180;
     const dLon = (SHOP_LNG - lng) * Math.PI / 180;
     const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -84,14 +83,22 @@ app.post('/api/products/update/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { price, stock } = req.body;
-        // Database mein naya rate update karein
-        await Product.findByIdAndUpdate(id, { 
+        
+        console.log(`Updating Product ID: ${id} with Price: ${price}`); // Debugging ke liye log
+
+        const updatedProduct = await Product.findByIdAndUpdate(id, { 
             price: Number(price),
-            stock: Number(stock) 
-        });
-        res.json({ message: "Rate successfully update ho gaya!" });
+            stock: Number(stock) || 100 
+        }, { new: true });
+
+        if (!updatedProduct) {
+            return res.status(404).json({ error: "Product nahi mila" });
+        }
+
+        res.status(200).json({ message: "Rate successfully update ho gaya!", data: updatedProduct });
     } catch (err) {
-        res.status(500).json({ error: "Update fail ho gaya" });
+        console.error("Update fail:", err);
+        res.status(500).json({ error: "Server error! Update fail ho gaya." });
     }
 });
 
@@ -107,4 +114,3 @@ app.post('/api/advance-booking', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server live on port ${PORT}`));
-
