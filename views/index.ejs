@@ -2,23 +2,38 @@
 <html>
 <head>
     <title>Bikaner Veggie Shop</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .order-card { max-width: 500px; margin: 30px auto; padding: 25px; border-radius: 20px; border: none; }
-        .product-item { background: white; border-radius: 12px; padding: 10px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .btn-add { background-color: #198754; color: white; border-radius: 8px; }
+        body { background-color: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
+        .order-card { max-width: 500px; margin: 20px auto; padding: 20px; border-radius: 20px; border: none; }
+        .product-item { background: #ffffff; border-radius: 12px; padding: 12px; margin-bottom: 10px; border-left: 5px solid #198754; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .cart-item { background: #fdfdfd; padding: 8px; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+        .btn-add { background-color: #198754; color: white; border: none; padding: 5px 15px; border-radius: 8px; font-weight: bold; }
+        .btn-remove { color: #dc3545; cursor: pointer; font-weight: bold; border: none; background: none; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="card order-card shadow">
+        <div class="card order-card shadow-lg">
             <h2 class="text-center text-success fw-bold">Bikaner Fresh Veggies</h2>
+            <p class="text-center text-muted small">Mandi se seedha aapke ghar tak</p>
             <hr>
+            
             <div id="login-section">
-                <input type="number" id="mobile" placeholder="Mobile Number" class="form-control mb-2 py-2">
-                <input type="number" id="whatsapp" placeholder="WhatsApp Number" class="form-control mb-3 py-2">
-                <button onclick="checkLocation()" class="btn btn-primary w-100 fw-bold py-2">Check Delivery Area</button>
+                <div class="mb-2">
+                    <label class="small fw-bold">Mobile Number</label>
+                    <input type="number" id="mobile" placeholder="98290XXXXX" class="form-control py-2">
+                </div>
+                <div class="mb-2">
+                    <label class="small fw-bold">WhatsApp Number</label>
+                    <input type="number" id="whatsapp" placeholder="WhatsApp Number" class="form-control py-2">
+                </div>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="sync" onclick="syncNumbers()">
+                    <label class="form-check-label small">WhatsApp aur Mobile same hain</label>
+                </div>
+                <button onclick="checkLocation()" class="btn btn-primary w-100 fw-bold py-2 shadow-sm">Check Delivery Area</button>
             </div>
             
             <p id="status-msg" class="mt-3 text-center fw-bold"></p>
@@ -26,12 +41,20 @@
             <div id="product-list" class="mt-4"></div>
             
             <div id="checkout-section" style="display:none;" class="mt-4 border-top pt-3">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Cart Items: <span id="cart-count" class="badge bg-success">0</span></h5>
-                    <h5 class="mb-0 text-success">Total: ₹<span id="cart-total">0</span></h5>
+                <h6 class="fw-bold mb-3">Aapka Cart</h6>
+                <div id="cart-details" class="mb-3"></div>
+                
+                <div class="d-flex justify-content-between align-items-center bg-light p-2 rounded">
+                    <span class="fw-bold">Total Bill:</span>
+                    <span class="fw-bold text-success fs-5">₹<span id="cart-total">0</span></span>
                 </div>
-                <p class="text-muted small mt-2">*Advance Security (60%): ₹<span id="advance-amt">0</span></p>
-                <button onclick="sendOrder()" class="btn btn-warning w-100 fw-bold mt-2 py-2">Order on WhatsApp</button>
+                
+                <div class="alert alert-warning mt-2 py-2" style="font-size: 0.85rem;">
+                    <strong>*Advance Security (60%): ₹<span id="advance-amt">0</span></strong><br>
+                    Baaki ₹<span id="rem-amt">0</span> delivery par dene honge.
+                </div>
+                
+                <button onclick="sendOrder()" class="btn btn-warning w-100 fw-bold py-2 shadow">Confirm Order on WhatsApp</button>
             </div>
         </div>
     </div>
@@ -40,26 +63,38 @@
         let cart = [];
         let productsData = [];
 
+        function syncNumbers() {
+            if(document.getElementById('sync').checked) {
+                document.getElementById('whatsapp').value = document.getElementById('mobile').value;
+            }
+        }
+
         async function checkLocation() {
             const msg = document.getElementById('status-msg');
             msg.innerText = "Location check ho rahi hai...";
             
             navigator.geolocation.getCurrentPosition(async (pos) => {
-                const res = await fetch('/api/user/check-radius', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-                });
-                
-                const data = await res.json();
-                if(data.inRadius) {
-                    msg.className = "text-success mt-2 text-center";
-                    msg.innerText = "Sahi hai! Aap delivery area mein hain.";
-                    loadProducts();
-                } else {
-                    msg.className = "text-danger mt-2 text-center";
-                    msg.innerText = "Maafi, hum sirf 5km mein delivery karte hain.";
+                try {
+                    const res = await fetch('/api/user/check-radius', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+                    });
+                    
+                    const data = await res.json();
+                    if(data.inRadius) {
+                        msg.className = "text-success mt-2 text-center";
+                        msg.innerText = "Sahi hai! Aap delivery area mein hain.";
+                        loadProducts();
+                    } else {
+                        msg.className = "text-danger mt-2 text-center";
+                        msg.innerText = "Maafi, hum sirf 5km mein delivery karte hain.";
+                    }
+                } catch (e) {
+                    msg.innerText = "Server connection fail!";
                 }
+            }, () => {
+                msg.innerText = "Kripya GPS location allow karein.";
             });
         }
 
@@ -67,16 +102,16 @@
             const res = await fetch('/api/products');
             productsData = await res.json();
             const list = document.getElementById('product-list');
-            let html = '';
+            let html = '<h6 class="fw-bold mb-3 text-secondary">Chuniye Sabziyan:</h6>';
             
             productsData.forEach(p => {
                 html += `
                     <div class="d-flex justify-content-between align-items-center product-item">
                         <div>
-                            <span class="fw-bold">${p.name}</span><br>
+                            <span class="fw-bold text-dark">${p.name}</span><br>
                             <small class="text-muted">₹${p.price}/${p.unit || 'kg'}</small>
                         </div>
-                        <button onclick="addToCart('${p._id}')" class="btn btn-sm btn-add">Add +</button>
+                        <button onclick="addToCart('${p._id}')" class="btn-add">Add +</button>
                     </div>`;
             });
             list.innerHTML = html;
@@ -85,19 +120,53 @@
 
         function addToCart(id) {
             const product = productsData.find(p => p._id === id);
-            cart.push(product);
+            cart.push({...product, cartId: Date.now()});
+            updateCartUI();
+        }
+
+        function removeFromCart(cartId) {
+            cart = cart.filter(item => item.cartId !== cartId);
+            updateCartUI();
+        }
+
+        function updateCartUI() {
+            const cartDetails = document.getElementById('cart-details');
             const total = cart.reduce((sum, item) => sum + item.price, 0);
-            document.getElementById('cart-count').innerText = cart.length;
+            
+            let html = '';
+            cart.forEach(item => {
+                html += `
+                    <div class="d-flex justify-content-between cart-item">
+                        <span>${item.name}</span>
+                        <span>₹${item.price} <button onclick="removeFromCart(${item.cartId})" class="btn-remove">×</button></span>
+                    </div>`;
+            });
+            
+            cartDetails.innerHTML = html || '<p class="text-muted small">Cart khali hai</p>';
             document.getElementById('cart-total').innerText = total;
             document.getElementById('advance-amt').innerText = (total * 0.6).toFixed(2);
+            document.getElementById('rem-amt').innerText = (total * 0.4).toFixed(2);
         }
 
         function sendOrder() {
             const mobile = document.getElementById('mobile').value;
+            const wa = document.getElementById('whatsapp').value;
+            if(!mobile || cart.length === 0) return alert("Number daalein aur sabzi chunin!");
+            
             const total = cart.reduce((sum, item) => sum + item.price, 0);
             const items = cart.map(i => i.name).join(', ');
-            const text = `Naya Order! \nSabziyan: ${items} \nTotal: ₹${total} \nAdvance(60%): ₹${(total*0.6).toFixed(2)} \nContact: ${mobile}`;
-            window.open(`https://wa.me/918740871855?text=${encodeURIComponent(text)}`); // Apna number sahi daal dena
+            const advance = (total * 0.6).toFixed(2);
+            
+            const text = `*NAYA ORDER - BIKANER FRESH VEGGIES*\n\n` +
+                         `🥦 *Sabziyan:* ${items}\n` +
+                         `💰 *Total:* ₹${total}\n` +
+                         `💳 *Advance (60%):* ₹${advance}\n` +
+                         `🚚 *Remaining:* ₹${(total*0.4).toFixed(2)}\n\n` +
+                         `📞 *Mobile:* ${mobile}\n` +
+                         `✅ *WhatsApp:* ${wa}\n\n` +
+                         `_Kripya payment confirm karke screenshot bhejein._`;
+                         
+            window.open(`https://wa.me/918740871855?text=${encodeURIComponent(text)}`);
         }
     </script>
 </body>
