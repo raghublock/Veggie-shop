@@ -21,54 +21,35 @@ const productSchema = new mongoose.Schema({
     name: String,
     hindiName: String,
     price: Number,
-    stock: Number,
-    unit: String,
+    stock: { type: Number, default: 100 },
+    unit: { type: String, default: 'kg' },
     image: String
 });
 const Product = mongoose.model('Product', productSchema);
 
-// 3. Shop Location (Bikaner)
 const SHOP_LAT = 28.0229; 
 const SHOP_LNG = 73.3119;
 
 // --- ROUTES ---
 
-// 4. Home Page Route
+// 3. Home Page
 app.get('/', (req, res) => {
     res.render('index'); 
 });
 
-// 5. Admin Page Route (Password Protected)
+// 4. Admin Page (Password: bhati@123)
 app.get('/admin', (req, res) => {
     const { pass } = req.query;
     if (pass === 'bhati@123') {
         res.render('admin');
     } else {
-        res.send("<h1>Unauthorized! Sahi password ke saath URL kholiye.</h1><p>Example: /admin?pass=bhati@123</p>");
+        res.send("<h1>Unauthorized!</h1><p>URL ke peeche ?pass=bhati@123 lagayein.</p>");
     }
 });
 
 // --- API SECTION ---
 
-// 6. Radius Check API
-app.post('/api/user/check-radius', (req, res) => {
-    const { lat, lng } = req.body;
-    const R = 6371; 
-    const dLat = (SHOP_LAT - lat) * Math.PI / 180;
-    const dLon = (SHOP_LNG - lng) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat * Math.PI / 180) * Math.cos(SHOP_LAT * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    const distance = R * c;
-
-    if (distance <= 5) {
-        res.json({ inRadius: true });
-    } else {
-        res.json({ inRadius: false, error: "Maafi, hum sirf 5km tak hi delivery karte hain." });
-    }
-});
-
-// 7. Get All Products API
+// 5. Get All Products
 app.get('/api/products', async (req, res) => {
     try {
         const products = await Product.find({});
@@ -78,38 +59,53 @@ app.get('/api/products', async (req, res) => {
     }
 });
 
-// 8. Admin Update API (Price aur Stock badalne ke liye)
+// 6. Update Product (Price & Stock)
 app.post('/api/products/update/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { price, stock } = req.body;
-        
-        console.log(`Updating Product ID: ${id} with Price: ${price}`); // Debugging ke liye log
-
-        const updatedProduct = await Product.findByIdAndUpdate(id, { 
+        await Product.findByIdAndUpdate(id, { 
             price: Number(price),
-            stock: Number(stock) || 100 
-        }, { new: true });
-
-        if (!updatedProduct) {
-            return res.status(404).json({ error: "Product nahi mila" });
-        }
-
-        res.status(200).json({ message: "Rate successfully update ho gaya!", data: updatedProduct });
+            stock: Number(stock)
+        });
+        res.json({ message: "Update success!" });
     } catch (err) {
-        console.error("Update fail:", err);
-        res.status(500).json({ error: "Server error! Update fail ho gaya." });
+        res.status(500).json({ error: "Update fail" });
     }
 });
 
-// 9. Advance Booking Logic
-app.post('/api/advance-booking', async (req, res) => {
-    const { total } = req.body;
-    const securityAmount = total * 0.60;
-    res.json({
-        message: `Advance booking confirm karne ke liye ₹${securityAmount} pay karein.`,
-        cancellationFee: total * 0.20
-    });
+// 7. Add New Product (Seasonal)
+app.post('/api/products/add', async (req, res) => {
+    try {
+        const newProduct = new Product(req.body);
+        await newProduct.save();
+        res.json({ message: "Nayi sabzi add ho gayi!" });
+    } catch (err) {
+        res.status(500).json({ error: "Add fail" });
+    }
+});
+
+// 8. Delete Product
+app.delete('/api/products/delete/:id', async (req, res) => {
+    try {
+        await Product.findByIdAndDelete(req.params.id);
+        res.json({ message: "Delete success!" });
+    } catch (err) {
+        res.status(500).json({ error: "Delete fail" });
+    }
+});
+
+// 9. Radius Check
+app.post('/api/user/check-radius', (req, res) => {
+    const { lat, lng } = req.body;
+    const R = 6371; 
+    const dLat = (SHOP_LAT - lat) * Math.PI / 180;
+    const dLon = (SHOP_LNG - lng) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat * Math.PI / 180) * Math.cos(SHOP_LAT * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distance = R * c;
+    res.json({ inRadius: distance <= 5 });
 });
 
 const PORT = process.env.PORT || 3000;
