@@ -5,7 +5,9 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f8f9fa; }
-        .order-card { max-width: 500px; margin: 50px auto; padding: 20px; }
+        .order-card { max-width: 500px; margin: 50px auto; padding: 20px; border-radius: 15px; }
+        .product-card { transition: transform 0.2s; }
+        .product-card:hover { transform: scale(1.05); }
     </style>
 </head>
 <body>
@@ -14,21 +16,31 @@
             <h2 class="text-center text-success">Fresh Vegetables Bikaner</h2>
             <hr>
             <div id="login-section">
-                <input type="text" id="mobile" placeholder="Mobile Number" class="form-control mb-2">
-                <input type="text" id="whatsapp" placeholder="WhatsApp Number" class="form-control mb-2">
+                <input type="number" id="mobile" placeholder="Mobile Number" class="form-control mb-2">
+                <input type="number" id="whatsapp" placeholder="WhatsApp Number" class="form-control mb-2">
                 <div class="form-check mb-3">
                     <input class="form-check-input" type="checkbox" id="sync">
                     <label class="form-check-label">WhatsApp aur Mobile same hain</label>
                 </div>
-                <button onclick="checkLocation()" class="btn btn-primary w-100">Check Delivery Radius (5KM)</button>
+                <button onclick="checkLocation()" class="btn btn-primary w-100 fw-bold">Check Delivery Radius (5KM)</button>
             </div>
+            
             <p id="status-msg" class="mt-3 text-center fw-bold"></p>
             
             <div id="product-list"></div>
+            
+            <div id="checkout-section" style="display:none;" class="mt-4 border-top pt-3">
+                <h5>Aapka Cart: <span id="cart-count" class="badge bg-success">0</span></h5>
+                <p class="fw-bold">Total: ₹<span id="cart-total">0</span></p>
+                <button onclick="sendOrder()" class="btn btn-warning w-100 fw-bold">Order on WhatsApp</button>
+            </div>
         </div>
     </div>
 
     <script>
+        let cart = [];
+        let productsData = [];
+
         document.getElementById('sync').onclick = function() {
             if(this.checked) document.getElementById('whatsapp').value = document.getElementById('mobile').value;
         };
@@ -42,10 +54,7 @@
                 const res = await fetch('/api/user/check-radius', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        lat: pos.coords.latitude,
-                        lng: pos.coords.longitude
-                    })
+                    body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude })
                 });
                 
                 const data = await res.json();
@@ -54,27 +63,14 @@
                     msg.className = "text-success mt-3 text-center fw-bold";
                     msg.innerText = "Aap delivery area mein hain! Aap order kar sakte hain.";
                     
-                    // Products fetch karne ka logic
                     const prodRes = await fetch('/api/products');
-                    const products = await prodRes.json();
+                    productsData = await prodRes.json();
                     
-                    let html = '<div class="row mt-4">';
-                    products.forEach(p => {
-                        html += `
-                            <div class="col-6 mb-3">
-                                <div class="card p-2 text-center shadow-sm">
-                                    <h6 class="mb-1">${p.name}</h6>
-                                    <p class="text-muted mb-2">₹${p.price}/${p.unit || 'kg'}</p>
-                                    <button class="btn btn-sm btn-success" onclick="addToCart('${p._id}')">Add +</button>
-                                </div>
-                            </div>`;
-                    });
-                    html += '</div><button class="btn btn-warning w-100 mt-3 fw-bold">Go to Checkout</button>';
-                    productDiv.innerHTML = html;
-                    
+                    renderProducts();
+                    document.getElementById('checkout-section').style.display = 'block';
                 } else {
                     msg.className = "text-danger mt-3 text-center fw-bold";
-                    msg.innerText = data.error || "Maafi chahte hain, hum sirf 5km ke area mein delivery karte hain.";
+                    msg.innerText = data.error || "Maafi, hum sirf 5km mein delivery karte hain.";
                     productDiv.innerHTML = ""; 
                 }
             }, () => {
@@ -82,8 +78,44 @@
             });
         }
 
+        function renderProducts() {
+            let html = '<div class="row mt-4">';
+            productsData.forEach(p => {
+                html += `
+                    <div class="col-6 mb-3">
+                        <div class="card p-2 text-center shadow-sm product-card">
+                            <h6 class="mb-1">${p.name}</h6>
+                            <p class="text-muted mb-2">₹${p.price}/${p.unit || 'kg'}</p>
+                            <button class="btn btn-sm btn-outline-success" onclick="addToCart('${p._id}')">Add +</button>
+                        </div>
+                    </div>`;
+            });
+            html += '</div>';
+            document.getElementById('product-list').innerHTML = html;
+        }
+
         function addToCart(id) {
-            alert("Product added to cart! ID: " + id);
+            const product = productsData.find(p => p._id === id);
+            cart.push(product);
+            updateCart();
+        }
+
+        function updateCart() {
+            document.getElementById('cart-count').innerText = cart.length;
+            const total = cart.reduce((sum, item) => sum + item.price, 0);
+            document.getElementById('cart-total').innerText = total;
+        }
+
+        function sendOrder() {
+            const mobile = document.getElementById('mobile').value;
+            if(!mobile) return alert("Mobile number daalein!");
+            
+            const total = cart.reduce((sum, item) => sum + item.price, 0);
+            const itemsList = cart.map(item => `${item.name} (₹${item.price})`).join(', ');
+            
+            const text = `Naya Order! \nItems: ${itemsList} \nTotal: ₹${total} \nMobile: ${mobile}`;
+            const whatsappUrl = `https://wa.me/91XXXXXXXXXX?text=${encodeURIComponent(text)}`; // Apna number yahan daalein
+            window.open(whatsappUrl, '_blank');
         }
     </script>
 </body>
