@@ -6,93 +6,114 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f8f9fa; font-family: 'Segoe UI', sans-serif; }
-        .admin-card { max-width: 800px; margin: 30px auto; padding: 25px; border-radius: 20px; border: none; }
-        .veg-row { background: white; padding: 15px; border-radius: 12px; margin-bottom: 12px; border-left: 6px solid #198754; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: 0.3s; }
-        .veg-row:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
-        .update-btn { font-weight: bold; border-radius: 8px; padding: 6px 15px; }
+        .admin-card { max-width: 900px; margin: 20px auto; padding: 25px; border-radius: 20px; border: none; }
+        .veg-row { background: white; padding: 15px; border-radius: 12px; margin-bottom: 12px; border-left: 6px solid #198754; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .out-of-stock { border-left-color: #dc3545; opacity: 0.6; }
+        .add-form { background: #e9ecef; padding: 20px; border-radius: 15px; margin-bottom: 30px; border: 1px solid #ddd; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="card admin-card shadow-lg">
-            <h3 class="text-center text-success fw-bold">Admin Panel - Bikaner Mandi Rates</h3>
-            <p class="text-center text-muted small">Mandi se aate hi yahan se naye bhav (rates) update karein</p>
+            <h3 class="text-center text-success fw-bold">Admin Panel - Bikaner Mandi</h3>
             <hr>
-            
+
+            <div class="add-form">
+                <h6 class="fw-bold text-primary mb-3">➕ Nayi Sabzi (Seasonal) Add Karein</h6>
+                <div class="row g-2">
+                    <div class="col-md-3"><input type="text" id="add-name" placeholder="English Name" class="form-control"></div>
+                    <div class="col-md-3"><input type="text" id="add-hindi" placeholder="Hindi Name" class="form-control"></div>
+                    <div class="col-md-2"><input type="number" id="add-price" placeholder="Price" class="form-control"></div>
+                    <div class="col-md-2">
+                        <select id="add-unit" class="form-select">
+                            <option value="kg">kg</option>
+                            <option value="piece">piece</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2"><button onclick="addNewVeg()" class="btn btn-primary w-100 fw-bold">Add Now</button></div>
+                </div>
+            </div>
+
             <div id="admin-product-list">
-                <p class="text-center text-muted">Sabziyan load ho rahi hain...</p>
+                <p class="text-center">Loading Inventory...</p>
             </div>
         </div>
     </div>
 
     <script>
-        // Products load karne ka function
+        // Inventory load karein
         async function loadAdminProducts() {
-            try {
-                const res = await fetch('/api/products');
-                const products = await res.json();
-                let html = '';
-                
-                if (products.length === 0) {
-                    html = '<p class="text-center text-danger">Database mein koi sabzi nahi mili!</p>';
-                } else {
-                    products.forEach(p => {
-                        html += `
-                        <div class="veg-row d-flex justify-content-between align-items-center">
-                            <div style="flex: 1.5;">
-                                <span class="fw-bold text-dark fs-5">${p.name}</span> <br>
-                                <span class="text-success small fw-bold">${p.hindiName || ''}</span>
-                            </div>
-                            <div style="flex: 1;" class="px-2">
-                                <label class="small fw-bold text-muted">Naya Rate (₹)</label>
-                                <input type="number" id="price-${p._id}" value="${p.price}" class="form-control fw-bold border-success">
-                            </div>
-                            <div style="flex: 0.5; text-align: right;">
-                                <button onclick="updatePrice('${p._id}')" id="btn-${p._id}" class="btn btn-success btn-sm update-btn shadow-sm">Update</button>
-                            </div>
-                        </div>`;
-                    });
-                }
-                document.getElementById('admin-product-list').innerHTML = html;
-            } catch (err) {
-                document.getElementById('admin-product-list').innerHTML = '<p class="text-center text-danger">Server connect nahi ho pa raha!</p>';
-            }
+            const res = await fetch('/api/products');
+            const products = await res.json();
+            let html = '';
+            products.forEach(p => {
+                const isOut = p.stock === 0;
+                html += `
+                <div class="veg-row d-flex justify-content-between align-items-center ${isOut ? 'out-of-stock' : ''}">
+                    <div style="flex: 1.5;">
+                        <span class="fw-bold fs-5 text-dark">${p.name}</span> 
+                        <span class="badge ${isOut ? 'bg-danger' : 'bg-success'}">${isOut ? 'STOCK OUT' : 'IN STOCK'}</span><br>
+                        <span class="text-success small fw-bold">${p.hindiName || ''}</span>
+                    </div>
+                    <div style="flex: 1;" class="px-2">
+                        <label class="small fw-bold">Price (₹)</label>
+                        <input type="number" id="price-${p._id}" value="${p.price}" class="form-control border-success">
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button onclick="updateStatus('${p._id}', ${isOut ? 100 : 0})" class="btn ${isOut ? 'btn-outline-success' : 'btn-outline-danger'} btn-sm fw-bold">
+                            ${isOut ? 'In Stock' : 'Out of Stock'}
+                        </button>
+                        <button onclick="updatePrice('${p._id}')" class="btn btn-success btn-sm fw-bold">Update Rate</button>
+                        <button onclick="deleteVeg('${p._id}')" class="btn btn-light btn-sm">🗑️</button>
+                    </div>
+                </div>`;
+            });
+            document.getElementById('admin-product-list').innerHTML = html || '<p class="text-center">No products found.</p>';
         }
 
-        // Price update karne ka function
+        // Rate update
         async function updatePrice(id) {
-            const newPrice = document.getElementById(`price-${id}`).value;
-            const btn = document.getElementById(`btn-${id}`);
-            
-            if (!newPrice || newPrice <= 0) return alert("Sahi rate likhein!");
+            const price = document.getElementById(`price-${id}`).value;
+            const res = await fetch(`/api/products/update/${id}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ price })
+            });
+            if(res.ok) alert("Bhav (Rate) update ho gaya!");
+        }
 
-            // Button ko loading state mein dalna
-            const originalText = btn.innerText;
-            btn.innerText = "Wait...";
-            btn.disabled = true;
+        // Stock status change
+        async function updateStatus(id, newStock) {
+            await fetch(`/api/products/update/${id}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ stock: newStock })
+            });
+            loadAdminProducts();
+        }
 
-            try {
-                const res = await fetch(`/api/products/update/${id}`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ 
-                        price: parseFloat(newPrice),
-                        stock: 100 // Default stock value
-                    })
-                });
+        // Seasonal Add
+        async function addNewVeg() {
+            const data = {
+                name: document.getElementById('add-name').value,
+                hindiName: document.getElementById('add-hindi').value,
+                price: document.getElementById('add-price').value,
+                unit: document.getElementById('add-unit').value,
+                stock: 100
+            };
+            const res = await fetch('/api/products/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            if(res.ok) { alert("Nayi sabzi list mein jud gayi!"); location.reload(); }
+        }
 
-                if(res.ok) {
-                    const data = await res.json();
-                    alert("✅ " + data.message);
-                } else {
-                    const errorData = await res.json();
-                    alert("❌ Error: " + (errorData.error || "Update nahi hua"));
-                }
-            } catch (e) {
-                alert("❌ Server Error! Render logs check karein.");
-            } finally {
-                btn.innerText = originalText;
-                btn.disabled = false;
+        // Delete function
+        async function deleteVeg(id) {
+            if(confirm("Pakka hatana hai?")) {
+                await fetch(`/api/products/delete/${id}`, { method: 'DELETE' });
+                loadAdminProducts();
             }
         }
 
