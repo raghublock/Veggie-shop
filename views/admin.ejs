@@ -5,57 +5,95 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f8f9fa; }
-        .admin-card { max-width: 800px; margin: 30px auto; padding: 20px; border-radius: 15px; }
-        .veg-row { background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; border-left: 5px solid #198754; shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', sans-serif; }
+        .admin-card { max-width: 800px; margin: 30px auto; padding: 25px; border-radius: 20px; border: none; }
+        .veg-row { background: white; padding: 15px; border-radius: 12px; margin-bottom: 12px; border-left: 6px solid #198754; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: 0.3s; }
+        .veg-row:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
+        .update-btn { font-weight: bold; border-radius: 8px; padding: 6px 15px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="card admin-card shadow">
-            <h3 class="text-center text-success fw-bold">Admin Panel - Mandi Rates</h3>
-            <p class="text-center text-muted">Yahan se rates badlein aur stock manage karein</p>
+        <div class="card admin-card shadow-lg">
+            <h3 class="text-center text-success fw-bold">Admin Panel - Bikaner Mandi Rates</h3>
+            <p class="text-center text-muted small">Mandi se aate hi yahan se naye bhav (rates) update karein</p>
             <hr>
             
             <div id="admin-product-list">
-                </div>
+                <p class="text-center text-muted">Sabziyan load ho rahi hain...</p>
+            </div>
         </div>
     </div>
 
     <script>
+        // Products load karne ka function
         async function loadAdminProducts() {
-            const res = await fetch('/api/products');
-            const products = await res.json();
-            let html = '';
-            products.forEach(p => {
-                html += `
-                <div class="veg-row d-flex justify-content-between align-items-center">
-                    <div style="flex: 1;">
-                        <span class="fw-bold">${p.name}</span> <br>
-                        <small class="text-muted">${p.hindiName}</small>
-                    </div>
-                    <div style="flex: 1;">
-                        <input type="number" id="price-${p._id}" value="${p.price}" class="form-control form-control-sm w-75" placeholder="Price">
-                    </div>
-                    <div>
-                        <button onclick="updatePrice('${p._id}')" class="btn btn-success btn-sm">Update Rate</button>
-                    </div>
-                </div>`;
-            });
-            document.getElementById('admin-product-list').innerHTML = html;
+            try {
+                const res = await fetch('/api/products');
+                const products = await res.json();
+                let html = '';
+                
+                if (products.length === 0) {
+                    html = '<p class="text-center text-danger">Database mein koi sabzi nahi mili!</p>';
+                } else {
+                    products.forEach(p => {
+                        html += `
+                        <div class="veg-row d-flex justify-content-between align-items-center">
+                            <div style="flex: 1.5;">
+                                <span class="fw-bold text-dark fs-5">${p.name}</span> <br>
+                                <span class="text-success small fw-bold">${p.hindiName || ''}</span>
+                            </div>
+                            <div style="flex: 1;" class="px-2">
+                                <label class="small fw-bold text-muted">Naya Rate (₹)</label>
+                                <input type="number" id="price-${p._id}" value="${p.price}" class="form-control fw-bold border-success">
+                            </div>
+                            <div style="flex: 0.5; text-align: right;">
+                                <button onclick="updatePrice('${p._id}')" id="btn-${p._id}" class="btn btn-success btn-sm update-btn shadow-sm">Update</button>
+                            </div>
+                        </div>`;
+                    });
+                }
+                document.getElementById('admin-product-list').innerHTML = html;
+            } catch (err) {
+                document.getElementById('admin-product-list').innerHTML = '<p class="text-center text-danger">Server connect nahi ho pa raha!</p>';
+            }
         }
 
+        // Price update karne ka function
         async function updatePrice(id) {
             const newPrice = document.getElementById(`price-${id}`).value;
+            const btn = document.getElementById(`btn-${id}`);
+            
+            if (!newPrice || newPrice <= 0) return alert("Sahi rate likhein!");
+
+            // Button ko loading state mein dalna
+            const originalText = btn.innerText;
+            btn.innerText = "Wait...";
+            btn.disabled = true;
+
             try {
                 const res = await fetch(`/api/products/update/${id}`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ price: newPrice })
+                    body: JSON.stringify({ 
+                        price: parseFloat(newPrice),
+                        stock: 100 // Default stock value
+                    })
                 });
-                if(res.ok) alert("Rate update ho gaya!");
-                else alert("Error aaya!");
-            } catch (e) { alert("Server error!"); }
+
+                if(res.ok) {
+                    const data = await res.json();
+                    alert("✅ " + data.message);
+                } else {
+                    const errorData = await res.json();
+                    alert("❌ Error: " + (errorData.error || "Update nahi hua"));
+                }
+            } catch (e) {
+                alert("❌ Server Error! Render logs check karein.");
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
         }
 
         loadAdminProducts();
