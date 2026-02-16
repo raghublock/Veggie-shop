@@ -144,7 +144,6 @@
             cartDetails.innerHTML = html || '<p class="text-muted small">Cart khali hai</p>';
             document.getElementById('cart-total').innerText = total;
 
-            // Advance Logic
             const advanceBox = document.getElementById('advance-display-box');
             if (deliveryType === 'future' && total > 0) {
                 advanceBox.style.display = 'block';
@@ -162,13 +161,28 @@
             if(!mobile || cart.length === 0) return alert("Kripya details bharein!");
             
             const total = cart.reduce((sum, item) => sum + item.price, 0);
-            const items = cart.map(i => i.name).join(', ');
             const typeText = deliveryType === 'future' ? "FUTURE BOOKING (Advance Required)" : "URGENT (Today)";
+            
+            // Quantity aur Price ke saath list taiyar karna
+            let itemsDetails = "";
+            const counts = {};
+            cart.forEach(item => {
+                counts[item.name] = (counts[item.name] || 0) + 1;
+            });
+
+            Object.keys(counts).forEach(name => {
+                const product = cart.find(p => p.name === name);
+                const qty = counts[name];
+                const subTotal = product.price * qty;
+                itemsDetails += `✅ ${name} x ${qty} = ₹${subTotal}\n`;
+            });
             
             let text = `*NAYA ORDER - BIKANER FRESH VEGGIES*\n\n` +
                        `📅 *Type:* ${typeText}\n` +
-                       `🥦 *Sabziyan:* ${items}\n` +
-                       `💰 *Total:* ₹${total}\n`;
+                       `---------------------------\n` +
+                       `${itemsDetails}` +
+                       `---------------------------\n` +
+                       `💰 *Total Bill:* ₹${total}\n`;
             
             if(deliveryType === 'future') {
                 text += `💳 *Advance (60%):* ₹${(total*0.6).toFixed(2)}\n` +
