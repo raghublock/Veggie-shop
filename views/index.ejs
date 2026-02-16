@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Bikaner Veggie Shop</title>
+    <title>Bikaner Fresh Veggies</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
-        .order-card { max-width: 500px; margin: 20px auto; padding: 20px; border-radius: 20px; border: none; }
+        .order-card { max-width: 500px; margin: 20px auto; padding: 25px; border-radius: 20px; border: none; }
         .product-item { background: #ffffff; border-radius: 12px; padding: 12px; margin-bottom: 10px; border-left: 5px solid #198754; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .cart-item { background: #fdfdfd; padding: 8px; border-bottom: 1px solid #eee; font-size: 0.9rem; }
         .btn-add { background-color: #198754; color: white; border: none; padding: 5px 15px; border-radius: 8px; font-weight: bold; }
@@ -63,12 +63,14 @@
         let cart = [];
         let productsData = [];
 
+        // WhatsApp aur Mobile sync karne ke liye
         function syncNumbers() {
             if(document.getElementById('sync').checked) {
                 document.getElementById('whatsapp').value = document.getElementById('mobile').value;
             }
         }
 
+        // Location check karne ka logic
         async function checkLocation() {
             const msg = document.getElementById('status-msg');
             msg.innerText = "Location check ho rahi hai...";
@@ -85,50 +87,63 @@
                     if(data.inRadius) {
                         msg.className = "text-success mt-2 text-center";
                         msg.innerText = "Sahi hai! Aap delivery area mein hain.";
-                        loadProducts();
+                        loadProducts(); // Sabziyan load karein
                     } else {
                         msg.className = "text-danger mt-2 text-center";
-                        msg.innerText = "Maafi, hum sirf 5km mein delivery karte hain.";
+                        msg.innerText = data.error || "Maafi, hum sirf 5km mein delivery karte hain.";
                     }
                 } catch (e) {
-                    msg.innerText = "Server connection fail!";
+                    msg.innerText = "Server error! Database check karein.";
                 }
             }, () => {
                 msg.innerText = "Kripya GPS location allow karein.";
             });
         }
 
+        // Database se sabziyan laane ka logic
         async function loadProducts() {
-            const res = await fetch('/api/products');
-            productsData = await res.json();
             const list = document.getElementById('product-list');
-            let html = '<h6 class="fw-bold mb-3 text-secondary">Chuniye Sabziyan:</h6>';
-            
-            productsData.forEach(p => {
-                html += `
-                    <div class="d-flex justify-content-between align-items-center product-item">
-                        <div>
-                            <span class="fw-bold text-dark">${p.name}</span><br>
-                            <small class="text-muted">₹${p.price}/${p.unit || 'kg'}</small>
-                        </div>
-                        <button onclick="addToCart('${p._id}')" class="btn-add">Add +</button>
-                    </div>`;
-            });
-            list.innerHTML = html;
-            document.getElementById('checkout-section').style.display = 'block';
+            try {
+                const res = await fetch('/api/products');
+                productsData = await res.json();
+                
+                if (productsData.length === 0) {
+                    list.innerHTML = "<p class='text-center small'>Mandi se sabziyan aa rahi hain...</p>";
+                    return;
+                }
+
+                let html = '<h6 class="fw-bold mb-3 text-secondary">Chuniye Sabziyan:</h6>';
+                productsData.forEach(p => {
+                    html += `
+                        <div class="d-flex justify-content-between align-items-center product-item">
+                            <div>
+                                <span class="fw-bold text-dark">${p.name}</span><br>
+                                <small class="text-muted">₹${p.price}/${p.unit || 'kg'}</small>
+                            </div>
+                            <button onclick="addToCart('${p._id}')" class="btn-add">Add +</button>
+                        </div>`;
+                });
+                list.innerHTML = html;
+                document.getElementById('checkout-section').style.display = 'block';
+            } catch (err) {
+                list.innerHTML = "<p class='text-danger text-center'>Connection Error!</p>";
+            }
         }
 
+        // Cart mein sabzi add karna
         function addToCart(id) {
             const product = productsData.find(p => p._id === id);
-            cart.push({...product, cartId: Date.now()});
+            cart.push({...product, cartId: Date.now()}); // Unique ID for delete
             updateCartUI();
         }
 
+        // Cart se sabzi hatana
         function removeFromCart(cartId) {
             cart = cart.filter(item => item.cartId !== cartId);
             updateCartUI();
         }
 
+        // Cart screen update karna
         function updateCartUI() {
             const cartDetails = document.getElementById('cart-details');
             const total = cart.reduce((sum, item) => sum + item.price, 0);
@@ -144,14 +159,15 @@
             
             cartDetails.innerHTML = html || '<p class="text-muted small">Cart khali hai</p>';
             document.getElementById('cart-total').innerText = total;
-            document.getElementById('advance-amt').innerText = (total * 0.6).toFixed(2);
+            document.getElementById('advance-amt').innerText = (total * 0.6).toFixed(2); // 60% Advance
             document.getElementById('rem-amt').innerText = (total * 0.4).toFixed(2);
         }
 
+        // WhatsApp par order bhejna
         function sendOrder() {
             const mobile = document.getElementById('mobile').value;
-            const wa = document.getElementById('whatsapp').value;
-            if(!mobile || cart.length === 0) return alert("Number daalein aur sabzi chunin!");
+            const waNum = document.getElementById('whatsapp').value;
+            if(!mobile || cart.length === 0) return alert("Kripya mobile number aur sabziyan chuniye!");
             
             const total = cart.reduce((sum, item) => sum + item.price, 0);
             const items = cart.map(i => i.name).join(', ');
@@ -159,11 +175,11 @@
             
             const text = `*NAYA ORDER - BIKANER FRESH VEGGIES*\n\n` +
                          `🥦 *Sabziyan:* ${items}\n` +
-                         `💰 *Total:* ₹${total}\n` +
-                         `💳 *Advance (60%):* ₹${advance}\n` +
-                         `🚚 *Remaining:* ₹${(total*0.4).toFixed(2)}\n\n` +
-                         `📞 *Mobile:* ${mobile}\n` +
-                         `✅ *WhatsApp:* ${wa}\n\n` +
+                         `💰 *Total Bill:* ₹${total}\n` +
+                         `💳 *Advance Security (60%):* ₹${advance}\n` +
+                         `🚚 *Remaining (Pay on Delivery):* ₹${(total*0.4).toFixed(2)}\n\n` +
+                         `📞 *Contact:* ${mobile}\n` +
+                         `✅ *WhatsApp:* ${waNum}\n\n` +
                          `_Kripya payment confirm karke screenshot bhejein._`;
                          
             window.open(`https://wa.me/918740871855?text=${encodeURIComponent(text)}`);
