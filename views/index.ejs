@@ -8,7 +8,7 @@
         body { background-color: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
         .order-card { max-width: 500px; margin: 15px auto; padding: 25px; border-radius: 20px; border: none; }
         
-        /* DATE PICKER ULTIMATE FIX - Ab ye pakka black dikhega */
+        /* DATE PICKER FIX */
         #delivery-date { 
             color: #000000 !important; 
             background-color: #ffffff !important; 
@@ -18,12 +18,10 @@
             display: block;
             width: 100%;
             padding: 10px;
-            font-size: 1rem;
             -webkit-appearance: none;
             appearance: none;
         }
 
-        /* Note Design Fix - Ab ye sundar aur readable hai */
         .rate-warning { 
             font-size: 0.85rem; 
             background: #fff3cd; 
@@ -32,7 +30,6 @@
             border-radius: 10px; 
             border-left: 5px solid #ffc107; 
             margin-top: 10px;
-            font-weight: 500;
         }
         
         .ticker-wrap { background: #198754; color: white; padding: 5px 0; font-weight: bold; }
@@ -67,7 +64,7 @@
                     <label class="small fw-bold text-danger">Delivery Date Chuniye:</label>
                     <input type="date" id="delivery-date" class="form-control">
                     <div class="rate-warning">
-                        <b>⚠️ ध्यान दें:</b> बाकी 40% पेमेंट डिलीवरी वाले दिन के मंडी भाव (Market Rate) के हिसाब से होगी।
+                        <b>⚠️ ध्यान दें:</b> बाकी 40% पेमेंट डिलीवरी वाले दिन के मंडी भाव के हिसाब से होगी।
                     </div>
                 </div>
 
@@ -99,12 +96,13 @@
         let cart = [];
         let productsData = [];
 
+        // Fix: Mandi Bhav fetch logic
         async function loadMandiBhav() {
             try {
                 const res = await fetch('/api/settings');
                 const data = await res.json();
-                document.getElementById('mandi-ticker').innerText = "🔴 LIVE BIKANER MANDI BHAV: " + data.mandiMessage;
-            } catch(e) { }
+                document.getElementById('mandi-ticker').innerText = "🔴 LIVE BIKANER MANDI BHAV: " + (data.mandiMessage || "Mandi se taaza mal aa gaya hai!");
+            } catch(e) { console.log("Ticker error"); }
         }
         loadMandiBhav();
 
@@ -126,33 +124,33 @@
             updateCartUI();
         }
 
+        // Fix: Hamesha products load karega bina GPS error ke
         async function checkLocation() {
-            navigator.geolocation.getCurrentPosition(async (pos) => {
-                const res = await fetch('/api/user/check-radius', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-                });
-                const data = await res.json();
-                if (data.inRadius) loadProducts();
-                else alert("Maafi, hum sirf Bikaner mein 5km tak delivery karte hain.");
-            });
+            document.getElementById('product-list').innerHTML = "Loading Vegetables...";
+            loadProducts(); 
         }
 
         async function loadProducts() {
-            const res = await fetch('/api/products');
-            productsData = await res.json();
-            let html = '<h6 class="fw-bold mb-3">Chuniye Sabziyan:</h6>';
-            productsData.forEach(p => {
-                if (p.stock > 0) {
-                    html += `<div class="d-flex justify-content-between align-items-center product-item">
-                                <div><span class="fw-bold">${p.name}</span><br><small class="text-muted">₹${p.price}/${p.unit}</small></div>
-                                <button onclick="addToCart('${p._id}')" class="btn btn-outline-success btn-sm fw-bold">Add +</button>
-                             </div>`;
+            try {
+                const res = await fetch('/api/products');
+                productsData = await res.json();
+                let html = '<h6 class="fw-bold mb-3">Chuniye Sabziyan:</h6>';
+                if(productsData.length === 0) {
+                    html += '<p class="text-center text-muted">Admin panel se sabzi add karein!</p>';
                 }
-            });
-            document.getElementById('product-list').innerHTML = html;
-            document.getElementById('checkout-section').style.display = 'block';
+                productsData.forEach(p => {
+                    if (p.stock > 0) {
+                        html += `<div class="d-flex justify-content-between align-items-center product-item">
+                                    <div><span class="fw-bold">${p.name}</span><br><small class="text-muted">₹${p.price}/${p.unit || 'kg'}</small></div>
+                                    <button onclick="addToCart('${p._id}')" class="btn btn-outline-success btn-sm fw-bold">Add +</button>
+                                 </div>`;
+                    }
+                });
+                document.getElementById('product-list').innerHTML = html;
+                document.getElementById('checkout-section').style.display = 'block';
+            } catch (err) {
+                document.getElementById('product-list').innerHTML = "Error loading list.";
+            }
         }
 
         function addToCart(id) {
@@ -179,7 +177,7 @@
                 const itemPrice = item.price * item.quantity;
                 total += itemPrice;
                 html += `<div class="d-flex justify-content-between p-2 border-bottom small">
-                            <span><b>${item.name}</b> (${item.quantity}${item.unit})</span>
+                            <span><b>${item.name}</b> (${item.quantity}${item.unit || 'kg'})</span>
                             <div class="d-flex align-items-center">
                                 <button class="btn btn-sm btn-light border py-0" onclick="changeQty('${item._id}', -1)">-</button>
                                 <span class="mx-2">${item.quantity}</span>
@@ -205,28 +203,32 @@
             const type = document.getElementById('delivery-type').value;
             const date = document.getElementById('delivery-date').value;
             if(!mobile || !address || cart.length === 0) return alert("Details bharein!");
-            if(type === 'future' && !date) return alert("Kripya Delivery Date chuniye!");
 
-            const total = parseFloat(document.getElementById('cart-total').innerText);
+            // Save customer detail
+            await fetch('/api/customer/save', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ mobile, address })
+            });
+
+            const total = document.getElementById('cart-total').innerText;
             const advance = (total * 0.6).toFixed(2);
             const remaining = (total * 0.4).toFixed(2);
 
-            let bill = cart.map(i => `• ${i.name} (${i.quantity}${i.unit}) = ₹${i.price * i.quantity}`).join('\n');
+            let bill = cart.map(i => `• ${i.name} (${i.quantity}${i.unit || 'kg'}) = ₹${i.price * i.quantity}`).join('\n');
             
             let text = `*NAYA ORDER - BIKANER FRESH VEGGIES*\n\n` +
-                       `📅 *Type:* ${type === 'future' ? 'FUTURE BOOKING' : 'URGENT'}\n` +
-                       (type === 'future' ? `📆 *Delivery Date:* ${date}\n` : '') +
+                       `📅 *Type:* ${type}\n` +
+                       (type === 'future' ? `📆 *Date:* ${date}\n` : '') +
                        `📍 *Address:* ${address}\n` +
                        `---------------------------\n${bill}\n---------------------------\n` +
-                       `💰 *Total Bill:* ₹${total}\n`;
+                       `💰 *Total:* ₹${total}\n`;
             
             if(type === 'future') {
-                text += `✅ *Advance Paid (60%):* ₹${advance}\n` +
-                        `💵 *Remaining (40%):* ₹${remaining}\n\n` +
-                        `⚠️ *Note:* Baaki ₹${remaining} delivery wale din ke mandi rate ke hisab se kam ya zyada ho sakte hain.`;
+                text += `✅ *Advance Paid:* ₹${advance}\n💵 *Balance:* ₹${remaining}`;
             }
-
             text += `\n📞 *Contact:* ${mobile}`;
+            
             window.open(`https://wa.me/918740871855?text=${encodeURIComponent(text)}`);
         }
     </script>
