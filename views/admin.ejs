@@ -1,66 +1,104 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Admin - Bikaner Fresh</title>
+    <title>Bikaner Admin Panel</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', sans-serif; }
+        .admin-card { max-width: 900px; margin: 20px auto; padding: 25px; border-radius: 20px; }
+        .veg-row { background: white; padding: 15px; border-radius: 12px; margin-bottom: 12px; border-left: 6px solid #198754; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .out-of-stock { border-left-color: #dc3545 !important; opacity: 0.7; }
+    </style>
 </head>
-<body class="bg-light">
-    <div class="container py-4">
-        <h3 class="text-success fw-bold text-center">Bikaner Admin Panel</h3>
-        <hr>
+<body>
+    <div class="container">
+        <div class="card admin-card shadow-lg">
+            <h3 class="text-center text-success fw-bold">Bikaner Admin Panel</h3>
+            <hr>
 
-        <div class="card p-3 mb-4 shadow-sm border-primary">
-            <h6 class="fw-bold">📢 Live Mandi Bhav Patti</h6>
-            <div class="input-group">
-                <input type="text" id="m-in" class="form-control" placeholder="Aloo 20, Pyaaz 30...">
-                <button onclick="updM()" class="btn btn-primary">Update</button>
+            <div class="card p-3 mb-4 shadow-sm border-primary">
+                <h6 class="fw-bold text-primary">📢 Live Mandi Bhav Patti</h6>
+                <div class="input-group">
+                    <input type="text" id="mandi-input" class="form-control" placeholder="Aloo 20, Pyaaz 30...">
+                    <button onclick="updateMandiBhav()" class="btn btn-primary fw-bold">Update</button>
+                </div>
             </div>
-        </div>
-
-        <div class="card p-3 mb-4 shadow-sm">
-            <h6 class="fw-bold">➕ Nayi Sabzi Add Karein</h6>
-            <div class="row g-2">
-                <div class="col-6"><input type="text" id="n" placeholder="Name" class="form-control"></div>
-                <div class="col-3"><input type="number" id="p" placeholder="Price" class="form-control"></div>
-                <div class="col-3"><button onclick="add()" class="btn btn-success w-100">Add</button></div>
+            
+            <div class="card p-3 mb-4 shadow-sm">
+                <h6 class="fw-bold">➕ Nayi Sabzi Add Karein</h6>
+                <div class="row g-2">
+                    <div class="col-6"><input type="text" id="add-name" placeholder="Name" class="form-control"></div>
+                    <div class="col-3"><input type="number" id="add-price" placeholder="Price" class="form-control"></div>
+                    <div class="col-3"><button onclick="addNew()" class="btn btn-success w-100 fw-bold">Add</button></div>
+                </div>
             </div>
-        </div>
 
-        <div id="list"></div>
+            <div id="admin-list"></div>
+        </div>
     </div>
 
     <script>
-        async function updM() {
-            const m = document.getElementById('m-in').value;
-            await fetch('/api/settings/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ message: m }) });
-            alert("Ticker Updated!");
-        }
-
-        async function load() {
-            const res = await fetch('/api/products');
-            const data = await res.json();
-            let h = '';
-            data.forEach(x => {
-                h += `<div class="card p-3 mb-2 d-flex flex-row justify-content-between align-items-center shadow-sm">
-                        <b>${x.name}</b>
-                        <span>₹${x.price}/${x.unit}</span>
-                        <button onclick="del('${x._id}')" class="btn btn-danger btn-sm">🗑️</button>
-                      </div>`;
+        async function updateMandiBhav() {
+            const msg = document.getElementById('mandi-input').value;
+            await fetch('/api/settings/update', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ message: msg })
             });
-            document.getElementById('list').innerHTML = h || '<p class="text-center">No Products. Add from above!</p>';
+            alert("Ticker Update!");
         }
 
-        async function add() {
-            const body = { name: document.getElementById('n').value, price: document.getElementById('p').value, unit: 'kg' };
-            await fetch('/api/products/add', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+        async function loadAdmin() {
+            const res = await fetch('/api/products');
+            const prods = await res.json();
+            let html = '';
+            prods.forEach(p => {
+                const isOut = p.stock === 0;
+                html += `
+                <div class="veg-row d-flex justify-content-between align-items-center ${isOut ? 'out-of-stock' : ''}">
+                    <div style="flex: 1.2;">
+                        <span class="fw-bold fs-5">${p.name}</span><br>
+                        <span class="badge ${isOut ? 'bg-danger' : 'bg-success'}">${isOut ? 'OUT' : 'IN'}</span>
+                    </div>
+                    <div style="flex: 0.8;" class="px-2">
+                        <input type="number" id="p-${p._id}" value="${p.price}" class="form-control form-control-sm border-success">
+                    </div>
+                    <div class="d-flex gap-1">
+                        <button onclick="updPrice('${p._id}')" class="btn btn-success btn-sm fw-bold">Rate</button>
+                        <button onclick="updStock('${p._id}', ${isOut ? 100 : 0})" class="btn btn-outline-danger btn-sm fw-bold">${isOut ? 'In' : 'Out'}</button>
+                        <button onclick="del('${p._id}')" class="btn btn-light btn-sm">🗑️</button>
+                    </div>
+                </div>`;
+            });
+            document.getElementById('admin-list').innerHTML = html || '<p class="text-center">Database khali hai!</p>';
+        }
+
+        async function updPrice(id) {
+            const price = document.getElementById(`p-${id}`).value;
+            await fetch(`/api/products/update/${id}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ price: Number(price) }) });
+            alert("Bhav updated!");
+        }
+
+        async function updStock(id, stock) {
+            await fetch(`/api/products/update/${id}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ stock: Number(stock) }) });
+            loadAdmin();
+        }
+
+        async function addNew() {
+            const data = { name: document.getElementById('add-name').value, price: Number(document.getElementById('add-price').value), unit: 'kg' };
+            await fetch('/api/products/add', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
             location.reload();
         }
 
         async function del(id) {
-            if(confirm("Delete?")) { await fetch(`/api/products/delete/${id}`, { method: 'DELETE' }); load(); }
+            if(confirm("Delete?")) {
+                await fetch(`/api/products/delete/${id}`, { method: 'DELETE' });
+                loadAdmin();
+            }
         }
-        load();
+
+        loadAdmin();
     </script>
 </body>
 </html>
