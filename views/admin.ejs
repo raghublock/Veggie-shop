@@ -8,6 +8,7 @@
         body { background-color: #f8f9fa; font-family: 'Segoe UI', sans-serif; }
         .admin-card { max-width: 900px; margin: 20px auto; padding: 25px; border-radius: 20px; }
         .veg-row { background: white; padding: 15px; border-radius: 12px; margin-bottom: 12px; border-left: 6px solid #198754; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .free-item { border-left-color: #ffc107 !important; background: #fffdf5; }
     </style>
 </head>
 <body>
@@ -19,26 +20,35 @@
             <div class="bg-white p-3 rounded mb-4 shadow-sm border-start border-primary border-5">
                 <h6 class="fw-bold text-primary">📢 Live Mandi Bhav Ticker Update Karein</h6>
                 <div class="input-group">
-                    <input type="text" id="mandi-input" class="form-control" placeholder="Aloo ₹25, Pyaaz ₹30, Tamatar ₹40...">
+                    <input type="text" id="mandi-input" class="form-control" placeholder="Aloo ₹25, Pyaaz ₹30...">
                     <button onclick="updateMandiBhav()" class="btn btn-primary fw-bold">Update Patti</button>
                 </div>
             </div>
             
             <div class="bg-light p-3 rounded mb-4 border">
-                <h6 class="fw-bold">➕ Nayi Sabzi Add Karein</h6>
+                <h6 class="fw-bold">➕ Nayi Sabzi Add Karein (Seasonal)</h6>
                 <div class="row g-2">
-                    <div class="col-md-3"><input type="text" id="add-name" placeholder="Name" class="form-control"></div>
+                    <div class="col-md-3"><input type="text" id="add-name" placeholder="English Name" class="form-control"></div>
                     <div class="col-md-3"><input type="text" id="add-hindi" placeholder="Hindi Name" class="form-control"></div>
                     <div class="col-md-2"><input type="number" id="add-price" placeholder="Price" class="form-control"></div>
+                    <div class="col-md-2">
+                        <select id="add-unit" class="form-select">
+                            <option value="kg">kg</option>
+                            <option value="piece">piece</option>
+                        </select>
+                    </div>
                     <div class="col-md-2"><button onclick="addNew()" class="btn btn-success w-100 fw-bold">Add</button></div>
                 </div>
             </div>
 
-            <div id="admin-list"></div>
+            <div id="admin-list">
+                <p class="text-center text-muted">Loading vegetables...</p>
+            </div>
         </div>
     </div>
 
     <script>
+        // Mandi Ticker Update
         async function updateMandiBhav() {
             const msg = document.getElementById('mandi-input').value;
             if(!msg) return alert("Kuch toh likho bhai!");
@@ -47,51 +57,99 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ message: msg })
             });
-            if(res.ok) alert("Patti Update ho gayi!");
+            if(res.ok) alert("Mandi patti update ho gayi!");
         }
 
+        // Load Products
         async function loadAdmin() {
-            const res = await fetch('/api/products');
-            const prods = await res.json();
-            let html = '';
-            prods.forEach(p => {
-                const isOut = p.stock === 0;
-                html += `
-                <div class="veg-row d-flex justify-content-between align-items-center">
-                    <div style="flex: 1.5;">
-                        <span class="fw-bold fs-5">${p.name}</span><br>
-                        <span class="badge ${isOut ? 'bg-danger' : 'bg-success'}">${isOut ? 'OUT' : 'IN'}</span>
-                    </div>
-                    <div style="flex: 1;"><input type="number" id="p-${p._id}" value="${p.price}" class="form-control"></div>
-                    <div class="d-flex gap-1">
-                        <button onclick="updPrice('${p._id}')" class="btn btn-success btn-sm">Rate</button>
-                        <button onclick="updStock('${p._id}', ${isOut ? 100 : 0})" class="btn btn-outline-danger btn-sm">${isOut ? 'In' : 'Out'}</button>
-                        <button onclick="del('${p._id}')" class="btn btn-light btn-sm">🗑️</button>
-                    </div>
-                </div>`;
-            });
-            document.getElementById('admin-list').innerHTML = html;
+            try {
+                const res = await fetch('/api/products');
+                const prods = await res.json();
+                let html = '';
+                
+                if (prods.length === 0) {
+                    html = '<div class="alert alert-info text-center">Database khali hai. Upar se sabzi add karein!</div>';
+                } else {
+                    prods.forEach(p => {
+                        const isOut = p.stock === 0;
+                        html += `
+                        <div class="veg-row d-flex justify-content-between align-items-center ${p.isFree ? 'free-item' : ''}">
+                            <div style="flex: 1.5;">
+                                <span class="fw-bold fs-5">${p.name}</span> 
+                                ${p.isFree ? '<span class="badge bg-warning text-dark">FREE</span>' : ''}<br>
+                                <span class="badge ${isOut ? 'bg-danger' : 'bg-success'}">${isOut ? 'STOCK OUT' : 'IN STOCK'}</span>
+                            </div>
+                            <div style="flex: 1;" class="px-2">
+                                <label class="small fw-bold">Price (₹)</label>
+                                <input type="number" id="p-${p._id}" value="${p.price}" class="form-control form-control-sm">
+                            </div>
+                            <div class="d-flex gap-1">
+                                <button onclick="updPrice('${p._id}')" class="btn btn-success btn-sm">Rate</button>
+                                <button onclick="toggleFree('${p._id}', ${!p.isFree})" class="btn btn-outline-warning btn-sm">${p.isFree ? 'Paid' : 'Free'}</button>
+                                <button onclick="updStock('${p._id}', ${isOut ? 100 : 0})" class="btn btn-outline-danger btn-sm">${isOut ? 'In' : 'Out'}</button>
+                                <button onclick="del('${p._id}')" class="btn btn-light btn-sm">🗑️</button>
+                            </div>
+                        </div>`;
+                    });
+                }
+                document.getElementById('admin-list').innerHTML = html;
+            } catch (err) {
+                document.getElementById('admin-list').innerHTML = '<div class="alert alert-danger text-center">Error: Database connect nahi ho raha!</div>';
+            }
         }
 
         async function updPrice(id) {
             const price = document.getElementById(`p-${id}`).value;
-            await fetch(`/api/products/update/${id}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ price }) });
-            alert("Rate Updated!");
+            await fetch(`/api/products/update/${id}`, { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({ price: Number(price) }) 
+            });
+            alert("Bhav update ho gaya!");
+            loadAdmin();
+        }
+
+        async function toggleFree(id, status) {
+            await fetch(`/api/products/update/${id}`, { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({ isFree: status }) 
+            });
+            loadAdmin();
         }
 
         async function updStock(id, stock) {
-            await fetch(`/api/products/update/${id}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ stock }) });
+            await fetch(`/api/products/update/${id}`, { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({ stock: Number(stock) }) 
+            });
             loadAdmin();
         }
 
         async function addNew() {
-            const data = { name: document.getElementById('add-name').value, hindiName: document.getElementById('add-hindi').value, price: document.getElementById('add-price').value, unit: 'kg' };
-            await fetch('/api/products/add', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            const data = { 
+                name: document.getElementById('add-name').value, 
+                hindiName: document.getElementById('add-hindi').value, 
+                price: Number(document.getElementById('add-price').value), 
+                unit: document.getElementById('add-unit').value,
+                stock: 100 
+            };
+            if(!data.name || !data.price) return alert("Name aur Price bharein!");
+            
+            await fetch('/api/products/add', { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify(data) 
+            });
             location.reload();
         }
 
         async function del(id) {
-            if(confirm("Pakka?")) { await fetch(`/api/products/delete/${id}`, { method: 'DELETE' }); loadAdmin(); }
+            if(confirm("Bhai, kya aap ise pakka hatana chahte hain?")) { 
+                await fetch(`/api/products/delete/${id}`, { method: 'DELETE' }); 
+                loadAdmin(); 
+            }
         }
 
         loadAdmin();
