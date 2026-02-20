@@ -8,29 +8,33 @@
         body { background-color: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
         .order-card { max-width: 500px; margin: 15px auto; padding: 25px; border-radius: 20px; border: none; }
         
-        /* DATE PICKER ULTIMATE FIX */
+        /* DATE PICKER ULTIMATE FIX - Ab ye pakka black dikhega */
         #delivery-date { 
             color: #000000 !important; 
             background-color: #ffffff !important; 
             border: 2px solid #dc3545 !important;
             font-weight: bold !important;
-            height: 45px;
+            height: 48px;
             display: block;
             width: 100%;
             padding: 10px;
-            -webkit-appearance: none; /* Mobile fix */
-            -moz-appearance: none;
+            font-size: 1rem;
+            -webkit-appearance: none;
             appearance: none;
         }
 
-        /* Taaki date select karne ke baad bhi text black rahe */
-        #delivery-date::-webkit-datetime-edit,
-        #delivery-date::-webkit-inner-spin-button,
-        #delivery-date::-webkit-clear-button {
-            color: #000 !important;
+        /* Note Design Fix - Ab ye sundar aur readable hai */
+        .rate-warning { 
+            font-size: 0.85rem; 
+            background: #fff3cd; 
+            color: #856404; 
+            padding: 12px; 
+            border-radius: 10px; 
+            border-left: 5px solid #ffc107; 
+            margin-top: 10px;
+            font-weight: 500;
         }
         
-        /* Ticker Style */
         .ticker-wrap { background: #198754; color: white; padding: 5px 0; font-weight: bold; }
         .product-item { background: #fff; border-radius: 12px; padding: 12px; margin-bottom: 10px; border-left: 5px solid #198754; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     </style>
@@ -62,7 +66,9 @@
                 <div id="date-section" style="display:none;" class="mb-3">
                     <label class="small fw-bold text-danger">Delivery Date Chuniye:</label>
                     <input type="date" id="delivery-date" class="form-control">
-                    <p class="text-warning small mt-2"><b>Note:</b> 40% payment delivery date ke rate par hogi.</p>
+                    <div class="rate-warning">
+                        <b>⚠️ ध्यान दें:</b> बाकी 40% पेमेंट डिलीवरी वाले दिन के मंडी भाव (Market Rate) के हिसाब से होगी।
+                    </div>
                 </div>
 
                 <button onclick="checkLocation()" class="btn btn-primary w-100 fw-bold">Confirm & Shop Now</button>
