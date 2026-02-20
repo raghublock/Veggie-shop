@@ -96,7 +96,6 @@
         let cart = [];
         let productsData = [];
 
-        // Fix: Mandi Bhav fetch logic
         async function loadMandiBhav() {
             try {
                 const res = await fetch('/api/settings');
@@ -124,7 +123,6 @@
             updateCartUI();
         }
 
-        // Fix: Hamesha products load karega bina GPS error ke
         async function checkLocation() {
             document.getElementById('product-list').innerHTML = "Loading Vegetables...";
             loadProducts(); 
@@ -204,7 +202,6 @@
             const date = document.getElementById('delivery-date').value;
             if(!mobile || !address || cart.length === 0) return alert("Details bharein!");
 
-            // Save customer detail
             await fetch('/api/customer/save', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -229,7 +226,9 @@
             }
             text += `\n📞 *Contact:* ${mobile}`;
             
-            window.open(`https://wa.me/918740871855?text=${encodeURIComponent(text)}`);
+            // --- SAFARI/IPHONE FIX ---
+            const whatsappUrl = `https://api.whatsapp.com/send?phone=918740871855&text=${encodeURIComponent(text)}`;
+            window.location.href = whatsappUrl;
         }
     </script>
 </body>
