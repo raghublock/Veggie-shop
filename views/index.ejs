@@ -8,12 +8,23 @@
         body { background-color: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
         .order-card { max-width: 500px; margin: 15px auto; padding: 25px; border-radius: 20px; border: none; }
         .product-item { background: #fff; border-radius: 12px; padding: 12px; margin-bottom: 10px; border-left: 5px solid #198754; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .free-badge { background: #ffc107; color: #000; font-size: 0.7rem; padding: 2px 8px; border-radius: 5px; font-weight: bold; }
+        /* Date Picker Design Fix */
+        #delivery-date { 
+            color: #000 !important; 
+            background-color: #fff !important; 
+            border: 2px solid #dc3545 !important;
+            font-weight: bold;
+        }
         .qr-box { border: 2px dashed #198754; padding: 15px; border-radius: 15px; background: #fff; display: none; margin-top: 15px; }
         .refer-box { background: #e7f3ff; border: 1px dashed #007bff; padding: 15px; border-radius: 15px; display: none; margin-top: 20px; }
+        .ticker-wrap { background: #198754; color: white; padding: 5px 0; font-weight: bold; }
     </style>
 </head>
 <body>
+    <div class="ticker-wrap">
+        <marquee id="mandi-ticker" scrollamount="5">🔴 LIVE BIKANER MANDI BHAV: Loading...</marquee>
+    </div>
+
     <div class="container">
         <div class="card order-card shadow-lg">
             <h2 class="text-center text-success fw-bold">Bikaner Fresh Veggies</h2>
@@ -27,13 +38,15 @@
                 <label class="small fw-bold text-danger">Delivery Address (पता)</label>
                 <input type="text" id="address" placeholder="Gali, Mohalla, Area..." class="form-control mb-3">
                 
+                <label class="small fw-bold text-primary">Delivery Kab Chahiye?</label>
                 <select id="delivery-type" class="form-select mb-3" onchange="toggleDateAndUI()">
                     <option value="today">Aaj hi (Urgent Delivery)</option>
                     <option value="future">Future Booking (Advance Booking)</option>
                 </select>
 
                 <div id="date-section" style="display:none;" class="mb-3">
-                    <input type="date" id="delivery-date" class="form-control border-danger">
+                    <label class="small fw-bold text-danger">Delivery Date Chuniye:</label>
+                    <input type="date" id="delivery-date" class="form-control">
                     <p class="text-warning small mt-2"><b>Note:</b> 40% payment delivery date ke rate par hogi.</p>
                 </div>
 
@@ -57,11 +70,6 @@
                 </div>
                 
                 <button onclick="sendOrder()" class="btn btn-warning w-100 fw-bold py-3 mt-3 shadow">Confirm Order on WhatsApp</button>
-
-                <div id="referral-display" class="refer-box text-center">
-                    <h6 class="fw-bold text-primary mb-1">🎁 Refer & Save ₹20!</h6>
-                    <button onclick="shareReferral()" class="btn btn-sm btn-primary fw-bold mt-2">WhatsApp par Share karein</button>
-                </div>
             </div>
         </div>
     </div>
@@ -70,7 +78,13 @@
         let cart = [];
         let productsData = [];
         let userCode = "";
-        const refFromUrl = new URLSearchParams(window.location.search).get('ref');
+
+        async function loadMandiBhav() {
+            const res = await fetch('/api/settings');
+            const data = await res.json();
+            document.getElementById('mandi-ticker').innerText = "🔴 LIVE BIKANER MANDI BHAV: " + data.mandiMessage;
+        }
+        loadMandiBhav();
 
         async function checkReturningCustomer(num) {
             if (num.length === 10) {
@@ -80,10 +94,7 @@
                     body: JSON.stringify({ mobile: num })
                 });
                 const data = await res.json();
-                if (data.address) {
-                    document.getElementById('address').value = data.address;
-                    userCode = data.myCode;
-                }
+                if (data.address) document.getElementById('address').value = data.address;
             }
         }
 
@@ -102,7 +113,7 @@
                 });
                 const data = await res.json();
                 if (data.inRadius) loadProducts();
-                else alert("Maafi, hum yahan delivery nahi karte.");
+                else alert("Maafi, hum sirf Bikaner mein 5km tak delivery karte hain.");
             });
         }
 
@@ -113,9 +124,8 @@
             productsData.forEach(p => {
                 if (p.stock > 0) {
                     html += `<div class="d-flex justify-content-between align-items-center product-item">
-                                <div><span class="fw-bold">${p.name}</span> ${p.isFree ? '<span class="free-badge">FREE GIFT 🎁</span>' : ''}<br>
-                                <small class="text-muted">₹${p.price}/${p.unit}</small></div>
-                                <button onclick="addToCart('${p._id}')" class="btn-add">Add +</button>
+                                <div><span class="fw-bold">${p.name}</span><br><small class="text-muted">₹${p.price}/${p.unit}</small></div>
+                                <button onclick="addToCart('${p._id}')" class="btn btn-outline-success btn-sm fw-bold">Add +</button>
                              </div>`;
                 }
             });
@@ -144,15 +154,14 @@
             let total = 0;
             let html = '';
             cart.forEach(item => {
-                const itemPrice = item.isFree ? 0 : (item.price * item.quantity);
+                const itemPrice = item.price * item.quantity;
                 total += itemPrice;
-                html += `<div class="d-flex justify-content-between p-2 border-bottom">
+                html += `<div class="d-flex justify-content-between p-2 border-bottom small">
                             <span><b>${item.name}</b> (${item.quantity}${item.unit})</span>
                             <div class="d-flex align-items-center">
-                                <button class="qty-btn" onclick="changeQty('${item._id}', -1)">-</button>
+                                <button class="btn btn-sm btn-light border py-0" onclick="changeQty('${item._id}', -1)">-</button>
                                 <span class="mx-2">${item.quantity}</span>
-                                <button class="qty-btn" onclick="changeQty('${item._id}', 1)">+</button>
-                                <span class="ms-3 fw-bold">${item.isFree ? 'FREE' : '₹'+itemPrice}</span>
+                                <button class="btn btn-sm btn-light border py-0" onclick="changeQty('${item._id}', 1)">+</button>
                             </div>
                          </div>`;
             });
@@ -171,28 +180,34 @@
         async function sendOrder() {
             const mobile = document.getElementById('mobile').value;
             const address = document.getElementById('address').value;
+            const type = document.getElementById('delivery-type').value;
+            const date = document.getElementById('delivery-date').value;
             if(!mobile || !address || cart.length === 0) return alert("Details bharein!");
-
-            const saveRes = await fetch('/api/customer/save', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ mobile, address, referredBy: refFromUrl })
-            });
-            const saveData = await saveRes.json();
-            userCode = saveData.myCode;
+            if(type === 'future' && !date) return alert("Kripya Delivery Date chuniye!");
 
             const total = document.getElementById('cart-total').innerText;
-            const type = document.getElementById('delivery-type').value;
-            let bill = cart.map(i => `✅ ${i.name} (${i.quantity}${i.unit}) = ${i.isFree ? 'FREE' : '₹'+(i.price*i.quantity)}`).join('\n');
-            
-            let text = `*NAYA ORDER - BIKANER FRESH VEGGIES*\n\n📅 *Type:* ${type}\n📍 *Address:* ${address}\n---------------------------\n${bill}\n---------------------------\n💰 *Total:* ₹${total}\n📞 *Contact:* ${mobile}`;
-            window.open(`https://wa.me/918740871855?text=${encodeURIComponent(text)}`);
-            document.getElementById('referral-display').style.display = 'block';
-        }
+            const advance = (total * 0.6).toFixed(2);
+            const remaining = (total * 0.4).toFixed(2);
 
-        function shareReferral() {
-            const link = `https://veggie-shop-lgvy.onrender.com/?ref=${userCode}`;
-            window.open(`https://wa.me/?text=${encodeURIComponent("Bhai, taaza sabziyan mangwa! Mere link se order kar aur discount pa: " + link)}`);
+            let bill = cart.map(i => `• ${i.name} (${i.quantity}${i.unit}) = ₹${i.price * i.quantity}`).join('\n');
+            
+            // WhatsApp Message Fix
+            let text = `*NAYA ORDER - BIKANER FRESH VEGGIES*\n\n` +
+                       `📅 *Type:* ${type === 'future' ? 'FUTURE BOOKING' : 'URGENT'}\n` +
+                       (type === 'future' ? `📆 *Delivery Date:* ${date}\n` : '') +
+                       `📍 *Address:* ${address}\n` +
+                       `---------------------------\n${bill}\n---------------------------\n` +
+                       `💰 *Total Bill:* ₹${total}\n`;
+            
+            if(type === 'future') {
+                text += `✅ *Advance Paid (60%):* ₹${advance}\n` +
+                        `💵 *Remaining (40%):* ₹${remaining}\n\n` +
+                        `⚠️ *Note:* Baaki ₹${remaining} delivery wale din ke mandi rate ke hisab se kam ya zyada ho sakte hain.`;
+            }
+
+            text += `\n📞 *Contact:* ${mobile}`;
+            
+            window.open(`https://wa.me/918740871855?text=${encodeURIComponent(text)}`);
         }
     </script>
 </body>
