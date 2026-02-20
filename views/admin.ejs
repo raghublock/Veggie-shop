@@ -9,6 +9,7 @@
         .admin-card { max-width: 900px; margin: 20px auto; padding: 25px; border-radius: 20px; }
         .veg-row { background: white; padding: 15px; border-radius: 12px; margin-bottom: 12px; border-left: 6px solid #198754; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .out-of-stock { border-left-color: #dc3545 !important; opacity: 0.7; }
+        .free-gift-active { border-left-color: #ffc107 !important; background: #fffdf5; }
     </style>
 </head>
 <body>
@@ -55,23 +56,35 @@
             let html = '';
             prods.forEach(p => {
                 const isOut = p.stock === 0;
+                const isFree = p.isFree || false;
                 html += `
-                <div class="veg-row d-flex justify-content-between align-items-center ${isOut ? 'out-of-stock' : ''}">
-                    <div style="flex: 1.2;">
-                        <span class="fw-bold fs-5">${p.name}</span><br>
+                <div class="veg-row d-flex justify-content-between align-items-center ${isOut ? 'out-of-stock' : ''} ${isFree ? 'free-gift-active' : ''}">
+                    <div style="flex: 1.1;">
+                        <span class="fw-bold fs-5">${p.name}</span> 
+                        ${isFree ? '<span class="badge bg-warning text-dark">GIFT 🎁</span>' : ''}<br>
                         <span class="badge ${isOut ? 'bg-danger' : 'bg-success'}">${isOut ? 'OUT' : 'IN'}</span>
                     </div>
-                    <div style="flex: 0.8;" class="px-2">
+                    <div style="flex: 0.7;" class="px-1">
                         <input type="number" id="p-${p._id}" value="${p.price}" class="form-control form-control-sm border-success">
                     </div>
                     <div class="d-flex gap-1">
                         <button onclick="updPrice('${p._id}')" class="btn btn-success btn-sm fw-bold">Rate</button>
+                        <button onclick="toggleFree('${p._id}', ${!isFree})" class="btn ${isFree ? 'btn-warning' : 'btn-outline-warning'} btn-sm fw-bold">Gift</button>
                         <button onclick="updStock('${p._id}', ${isOut ? 100 : 0})" class="btn btn-outline-danger btn-sm fw-bold">${isOut ? 'In' : 'Out'}</button>
                         <button onclick="del('${p._id}')" class="btn btn-light btn-sm">🗑️</button>
                     </div>
                 </div>`;
             });
             document.getElementById('admin-list').innerHTML = html || '<p class="text-center">Database khali hai!</p>';
+        }
+
+        async function toggleFree(id, status) {
+            await fetch(`/api/products/update/${id}`, { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({ isFree: status }) 
+            });
+            loadAdmin();
         }
 
         async function updPrice(id) {
@@ -86,7 +99,7 @@
         }
 
         async function addNew() {
-            const data = { name: document.getElementById('add-name').value, price: Number(document.getElementById('add-price').value), unit: 'kg' };
+            const data = { name: document.getElementById('add-name').value, price: Number(document.getElementById('add-price').value), unit: 'kg', stock: 100 };
             await fetch('/api/products/add', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
             location.reload();
         }
