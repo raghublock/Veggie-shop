@@ -7,17 +7,32 @@
     <style>
         body { background-color: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
         .order-card { max-width: 500px; margin: 15px auto; padding: 25px; border-radius: 20px; border: none; }
-        .product-item { background: #fff; border-radius: 12px; padding: 12px; margin-bottom: 10px; border-left: 5px solid #198754; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        /* Date Picker Design Fix */
+        
+        /* DATE PICKER ULTIMATE FIX */
         #delivery-date { 
-            color: #000 !important; 
-            background-color: #fff !important; 
+            color: #000000 !important; 
+            background-color: #ffffff !important; 
             border: 2px solid #dc3545 !important;
-            font-weight: bold;
+            font-weight: bold !important;
+            height: 45px;
+            display: block;
+            width: 100%;
+            padding: 10px;
+            -webkit-appearance: none; /* Mobile fix */
+            -moz-appearance: none;
+            appearance: none;
         }
-        .qr-box { border: 2px dashed #198754; padding: 15px; border-radius: 15px; background: #fff; display: none; margin-top: 15px; }
-        .refer-box { background: #e7f3ff; border: 1px dashed #007bff; padding: 15px; border-radius: 15px; display: none; margin-top: 20px; }
+
+        /* Taaki date select karne ke baad bhi text black rahe */
+        #delivery-date::-webkit-datetime-edit,
+        #delivery-date::-webkit-inner-spin-button,
+        #delivery-date::-webkit-clear-button {
+            color: #000 !important;
+        }
+        
+        /* Ticker Style */
         .ticker-wrap { background: #198754; color: white; padding: 5px 0; font-weight: bold; }
+        .product-item { background: #fff; border-radius: 12px; padding: 12px; margin-bottom: 10px; border-left: 5px solid #198754; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     </style>
 </head>
 <body>
@@ -63,10 +78,10 @@
                     <span class="fw-bold text-success fs-5">₹<span id="cart-total">0</span></span>
                 </div>
                 
-                <div id="advance-display-box" class="qr-box text-center">
+                <div id="advance-display-box" style="display:none;" class="p-3 border rounded bg-white text-center mb-3">
                     <h6 class="text-warning fw-bold">Advance Payment (60%): ₹<span id="advance-amt">0</span></h6>
-                    <img id="qr-img" src="" class="img-fluid mb-2 border p-2 bg-white" style="max-width: 200px;">
-                    <p class="small text-muted">UPI: 8740871855@ptsbi</p>
+                    <img id="qr-img" src="" class="img-fluid border p-2" style="max-width: 200px;">
+                    <p class="small text-muted mt-2">UPI: 8740871855@ptsbi</p>
                 </div>
                 
                 <button onclick="sendOrder()" class="btn btn-warning w-100 fw-bold py-3 mt-3 shadow">Confirm Order on WhatsApp</button>
@@ -77,12 +92,13 @@
     <script>
         let cart = [];
         let productsData = [];
-        let userCode = "";
 
         async function loadMandiBhav() {
-            const res = await fetch('/api/settings');
-            const data = await res.json();
-            document.getElementById('mandi-ticker').innerText = "🔴 LIVE BIKANER MANDI BHAV: " + data.mandiMessage;
+            try {
+                const res = await fetch('/api/settings');
+                const data = await res.json();
+                document.getElementById('mandi-ticker').innerText = "🔴 LIVE BIKANER MANDI BHAV: " + data.mandiMessage;
+            } catch(e) { }
         }
         loadMandiBhav();
 
@@ -185,13 +201,12 @@
             if(!mobile || !address || cart.length === 0) return alert("Details bharein!");
             if(type === 'future' && !date) return alert("Kripya Delivery Date chuniye!");
 
-            const total = document.getElementById('cart-total').innerText;
+            const total = parseFloat(document.getElementById('cart-total').innerText);
             const advance = (total * 0.6).toFixed(2);
             const remaining = (total * 0.4).toFixed(2);
 
             let bill = cart.map(i => `• ${i.name} (${i.quantity}${i.unit}) = ₹${i.price * i.quantity}`).join('\n');
             
-            // WhatsApp Message Fix
             let text = `*NAYA ORDER - BIKANER FRESH VEGGIES*\n\n` +
                        `📅 *Type:* ${type === 'future' ? 'FUTURE BOOKING' : 'URGENT'}\n` +
                        (type === 'future' ? `📆 *Delivery Date:* ${date}\n` : '') +
@@ -206,7 +221,6 @@
             }
 
             text += `\n📞 *Contact:* ${mobile}`;
-            
             window.open(`https://wa.me/918740871855?text=${encodeURIComponent(text)}`);
         }
     </script>
