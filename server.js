@@ -1,100 +1,86 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Admin - Bikaner Fresh Veggies</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { background-color: #f8f9fa; font-family: 'Segoe UI', sans-serif; }
-        .admin-card { max-width: 900px; margin: 20px auto; padding: 25px; border-radius: 20px; }
-        .veg-row { background: white; padding: 15px; border-radius: 12px; margin-bottom: 12px; border-left: 6px solid #198754; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="card admin-card shadow-lg">
-            <h3 class="text-center text-success fw-bold">Admin Panel - Bikaner Mandi</h3>
-            <hr>
+const express = require('express');
+const mongoose = require('mongoose');
+const path = require('path');
+require('dotenv').config();
 
-            <div class="bg-white p-3 rounded mb-4 shadow-sm border-start border-primary border-5">
-                <h6 class="fw-bold text-primary">📢 Live Mandi Bhav Ticker Update Karein</h6>
-                <div class="input-group">
-                    <input type="text" id="mandi-input" class="form-control" placeholder="Aloo ₹25, Pyaaz ₹30, Tamatar ₹40...">
-                    <button onclick="updateMandiBhav()" class="btn btn-primary fw-bold">Update Patti</button>
-                </div>
-            </div>
-            
-            <div class="bg-light p-3 rounded mb-4 border">
-                <h6 class="fw-bold">➕ Nayi Sabzi Add Karein</h6>
-                <div class="row g-2">
-                    <div class="col-md-3"><input type="text" id="add-name" placeholder="Name" class="form-control"></div>
-                    <div class="col-md-3"><input type="text" id="add-hindi" placeholder="Hindi Name" class="form-control"></div>
-                    <div class="col-md-2"><input type="number" id="add-price" placeholder="Price" class="form-control"></div>
-                    <div class="col-md-2"><button onclick="addNew()" class="btn btn-success w-100 fw-bold">Add</button></div>
-                </div>
-            </div>
+const app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-            <div id="admin-list"></div>
-        </div>
-    </div>
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
 
-    <script>
-        async function updateMandiBhav() {
-            const msg = document.getElementById('mandi-input').value;
-            if(!msg) return alert("Kuch toh likho bhai!");
-            const res = await fetch('/api/settings/update', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ message: msg })
-            });
-            if(res.ok) alert("Patti Update ho gayi!");
-        }
+mongoose.connect(process.env.MONGODB_URI)
+    .then(() => console.log("Bikaner DB Connected"))
+    .catch(err => console.error("DB Connection Fail:", err));
 
-        async function loadAdmin() {
-            const res = await fetch('/api/products');
-            const prods = await res.json();
-            let html = '';
-            prods.forEach(p => {
-                const isOut = p.stock === 0;
-                html += `
-                <div class="veg-row d-flex justify-content-between align-items-center">
-                    <div style="flex: 1.5;">
-                        <span class="fw-bold fs-5">${p.name}</span><br>
-                        <span class="badge ${isOut ? 'bg-danger' : 'bg-success'}">${isOut ? 'OUT' : 'IN'}</span>
-                    </div>
-                    <div style="flex: 1;"><input type="number" id="p-${p._id}" value="${p.price}" class="form-control"></div>
-                    <div class="d-flex gap-1">
-                        <button onclick="updPrice('${p._id}')" class="btn btn-success btn-sm">Rate</button>
-                        <button onclick="updStock('${p._id}', ${isOut ? 100 : 0})" class="btn btn-outline-danger btn-sm">${isOut ? 'In' : 'Out'}</button>
-                        <button onclick="del('${p._id}')" class="btn btn-light btn-sm">🗑️</button>
-                    </div>
-                </div>`;
-            });
-            document.getElementById('admin-list').innerHTML = html;
-        }
+// --- MODELS ---
+const productSchema = new mongoose.Schema({
+    name: String, hindiName: String, price: Number, stock: { type: Number, default: 100 }, unit: { type: String, default: 'kg' }, isFree: { type: Boolean, default: false }
+});
+const Product = mongoose.model('Product', productSchema);
 
-        async function updPrice(id) {
-            const price = document.getElementById(`p-${id}`).value;
-            await fetch(`/api/products/update/${id}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ price }) });
-            alert("Rate Updated!");
-        }
+const customerSchema = new mongoose.Schema({
+    mobile: { type: String, unique: true }, address: String, referralCode: { type: String, unique: true }, referredBy: String, lastOrder: { type: Date, default: Date.now }
+});
+const Customer = mongoose.model('Customer', customerSchema);
 
-        async function updStock(id, stock) {
-            await fetch(`/api/products/update/${id}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ stock }) });
-            loadAdmin();
-        }
+// Mandi Bhav Settings Model
+const settingsSchema = new mongoose.Schema({
+    mandiMessage: { type: String, default: "Bikaner Mandi ke aaj ke taaza bhav yahan dekhein!" }
+});
+const Settings = mongoose.model('Settings', settingsSchema);
 
-        async function addNew() {
-            const data = { name: document.getElementById('add-name').value, hindiName: document.getElementById('add-hindi').value, price: document.getElementById('add-price').value, unit: 'kg' };
-            await fetch('/api/products/add', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-            location.reload();
-        }
+// --- ROUTES ---
+app.get('/', (req, res) => res.render('index'));
 
-        async function del(id) {
-            if(confirm("Pakka?")) { await fetch(`/api/products/delete/${id}`, { method: 'DELETE' }); loadAdmin(); }
-        }
+app.get('/admin', (req, res) => {
+    if (req.query.pass === 'bhati@123') res.render('admin');
+    else res.send("Unauthorized!");
+});
 
-        loadAdmin();
-    </script>
-</body>
-</html>
+// --- API SECTION ---
+
+// Ticker APIs
+app.get('/api/settings', async (req, res) => {
+    let s = await Settings.findOne();
+    if (!s) s = await Settings.create({});
+    res.json(s);
+});
+
+app.post('/api/settings/update', async (req, res) => {
+    await Settings.findOneAndUpdate({}, { mandiMessage: req.body.message }, { upsert: true });
+    res.json({ message: "Ticker Update Ho Gaya!" });
+});
+
+app.post('/api/customer/get-address', async (req, res) => {
+    const customer = await Customer.findOne({ mobile: req.body.mobile });
+    res.json({ address: customer ? customer.address : null, myCode: customer ? customer.referralCode : null });
+});
+
+app.post('/api/customer/save', async (req, res) => {
+    const { mobile, address, referredBy } = req.body;
+    const myCode = "BK" + mobile.slice(-4);
+    const c = await Customer.findOneAndUpdate({ mobile }, { address, referralCode: myCode, referredBy, lastOrder: new Date() }, { upsert: true, new: true });
+    res.json({ success: true, myCode: c.referralCode });
+});
+
+app.get('/api/products', async (req, res) => res.json(await Product.find({})));
+
+app.post('/api/products/update/:id', async (req, res) => {
+    await Product.findByIdAndUpdate(req.params.id, req.body);
+    res.json({ message: "Success!" });
+});
+
+app.post('/api/products/add', async (req, res) => {
+    await new Product(req.body).save();
+    res.json({ message: "Added!" });
+});
+
+app.delete('/api/products/delete/:id', async (req, res) => {
+    await Product.findByIdAndDelete(req.params.id);
+    res.json({ message: "Deleted!" });
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server live!`));
